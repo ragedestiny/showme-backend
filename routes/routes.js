@@ -7,7 +7,7 @@ import {
 
 const router = express.Router();
 
-router.post("/", (req, res) => {
+router.get("/", (req, res) => {
   res.send("this works!");
 });
 
