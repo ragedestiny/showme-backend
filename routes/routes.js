@@ -7,6 +7,10 @@ import {
 
 const router = express.Router();
 
+router.post("/", (req, res) => {
+  res.send("this works!");
+});
+
 // Route for create/update/fetch user sentences
 router.post("/MyPage", userSentences);
 
