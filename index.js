@@ -19,6 +19,7 @@ app.use("/", routesUrls);
 
 const PORT = process.env.PORT || 5000;
 
+mongoose.set("strictQuery", false);
 // Connect to mongodb via mongoose
 mongoose
   .connect(process.env.DATABASE_ACCESS, {
