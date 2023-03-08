@@ -30,54 +30,60 @@ export const getTellSentences = async (req, res) => {
 
 // Route for retrieving/creating/updating the User sentences
 export const userSentences = async (req, res) => {
-  // If no user logged in, return no sentences
-  if (req.body?.length === 0) {
-    return;
-  }
-
-  // When user first logged in, pull their existing sentences in the database
-  if (req.body.firstName) {
-    const Start = req.body.sentences;
-    res.status(200).json(Start);
-    return;
-  }
-
-  // When user edits and updates their sentence after it has been created
-  if (typeof req.body[0] === "string") {
-    const [userID, sentenceInfo, updateUserSentences] = req.body;
-    await mongoose.connection.db
-      .collection("profiles")
-      .findOneAndUpdate(
-        { id: userID },
-        { $set: { sentences: updateUserSentences } }
-      );
-    await mongoose.connection.db
-      .collection("sentences")
-      .findOneAndUpdate(
-        { _id: mongoose.Types.ObjectId(sentenceInfo._id) },
-        { $set: { show: sentenceInfo.show, createdAt: sentenceInfo.createdAt } }
-      );
-    res.status(200).json(updateUserSentences);
-    return;
-  }
-
-  // When User creates a new show sentence
-  const newSentence = new Sentence({
-    title: req.body.title,
-    tell: req.body.tell,
-    show: req.body.show,
-    author: req.body.author,
-    GID: req.body.GID,
-  });
   try {
-    await newSentence.save();
-    mongoose.connection.db
-      .collection("profiles")
-      .findOneAndUpdate(
-        { id: req.body.GID },
-        { $push: { sentences: newSentence } }
+    // If no user logged in, return no sentences
+    if (req.body?.length === 0) {
+      return;
+    }
+
+    // When user first logged in, pull their existing sentences in the database
+    if (req.body.firstName) {
+      const Start = req.body.sentences;
+      res.status(200).json(Start);
+      return;
+    }
+
+    // When user edits and updates their sentence after it has been created
+    if (typeof req.body[0] === "string") {
+      const [userID, sentenceInfo, updateUserSentences] = req.body;
+      await mongoose.connection.db
+        .collection("profiles")
+        .findOneAndUpdate(
+          { id: userID },
+          { $set: { sentences: updateUserSentences } }
+        );
+      await mongoose.connection.db.collection("sentences").findOneAndUpdate(
+        { _id: mongoose.Types.ObjectId(sentenceInfo._id) },
+        {
+          $set: {
+            show: sentenceInfo.show,
+            createdAt: sentenceInfo.createdAt,
+          },
+        }
       );
-    res.status(201).json(newSentence);
+      res.status(200).json(updateUserSentences);
+      return;
+    }
+
+    if (req.body.show) {
+      // When User creates a new show sentence
+      const newSentence = new Sentence({
+        title: req.body.title,
+        tell: req.body.tell,
+        show: req.body.show,
+        author: req.body.author,
+        GID: req.body.GID,
+      });
+
+      await newSentence.save();
+      mongoose.connection.db
+        .collection("profiles")
+        .findOneAndUpdate(
+          { id: req.body.GID },
+          { $push: { sentences: newSentence } }
+        );
+      res.status(201).json(newSentence);
+    }
   } catch (error) {
     res.status(409).json({ message: error.message });
   }
