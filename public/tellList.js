@@ -74,12 +74,12 @@ const tellList = [
   {
     key: 15,
     title: "Day 15",
-    tell: "Describe Godzilla",
+    tell: "Describe Godzilla.",
   },
   {
     key: 16,
     title: "Day 16",
-    tell: "Describe Pikachu",
+    tell: "Describe Pikachu.",
   },
   {
     key: 17,
@@ -105,6 +105,11 @@ const tellList = [
     key: 21,
     title: "Day 21",
     tell: "Our lunch was gross.",
+  },
+  {
+    key: 22,
+    title: "Day 22",
+    tell: "We can not see anything in this fog.",
   },
 ];
 
