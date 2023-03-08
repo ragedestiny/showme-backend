@@ -24,6 +24,10 @@ const sentenceSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Profile",
   },
+  approved: {
+    type: Boolean,
+    default: false,
+  },
   GID: String,
 });
 
