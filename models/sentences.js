@@ -28,6 +28,10 @@ const sentenceSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  likeCount: {
+    type: Number,
+    default: 0,
+  },
   GID: String,
 });
 
@@ -48,13 +52,13 @@ const profileSchema = new mongoose.Schema({
   grade: {
     type: String,
   },
-
   email: String,
   dateJoined: {
     type: Date,
     default: new Date(),
   },
   sentences: [sentenceSchema],
+  likedSentences: [sentenceSchema],
 });
 
 // Creating mongoose model
