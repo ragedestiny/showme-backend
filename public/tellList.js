@@ -111,6 +111,26 @@ const tellList = [
     title: "Day 22",
     tell: "We can not see anything in this fog.",
   },
+  {
+    key: 23,
+    title: "Day 23",
+    tell: "The plants were colorful.",
+  },
+  {
+    key: 24,
+    title: "Day 24",
+    tell: "My leg hurts.",
+  },
+  {
+    key: 25,
+    title: "Day 25",
+    tell: "It was dark outside.",
+  },
+  {
+    key: 26,
+    title: "Day 26",
+    tell: "This test is hard.",
+  },
 ];
 
 export default tellList;
