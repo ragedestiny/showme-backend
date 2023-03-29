@@ -123,3 +123,16 @@ export const getUserInfo = async (req, res) => {
     res.status(409).json({ message: error.message });
   }
 };
+
+export const getPendingApprovalSentences = async (req, res) => {
+  try {
+    const awaitingApproval = await Sentence.find({ approved: false }).populate(
+      "author"
+    );
+    res.status(200).json(awaitingApproval);
+  } catch (error) {
+    res.status(409).json({ message: error.message });
+  }
+};
+
+export const updatePendingApprovalSentences = async (req, res) => {};

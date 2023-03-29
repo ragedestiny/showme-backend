@@ -3,6 +3,8 @@ import {
   userSentences,
   getTellSentences,
   getUserInfo,
+  getPendingApprovalSentences,
+  updatePendingApprovalSentences,
 } from "../controllers/routes.js";
 
 const router = express.Router();
@@ -19,5 +21,11 @@ router.get("/Login", getTellSentences);
 
 // Route for getting user info
 router.post("/Login", getUserInfo);
+
+// Route for getting sentences awaiting approval
+router.get("/Admin", getPendingApprovalSentences);
+
+// Route for updating status on sentences awaiting approval
+router.post("/Admin", updatePendingApprovalSentences);
 
 export default router;
