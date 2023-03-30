@@ -5,6 +5,10 @@ import tellList from "../public/tellList.js";
 // Route for getting the Tell Sentences
 export const getTellSentences = async (req, res) => {
   try {
+    // await Sentence.updateMany({}, { $set: { toRedo: false } });
+    // await Profile.updateMany({}, [
+    //   { $addFields: { "sentences.toRedo": false } },
+    // ]);
     const NewList = await Promise.all(
       tellList.map(async (tell, i) => {
         const TellList = new Tell({
@@ -12,10 +16,7 @@ export const getTellSentences = async (req, res) => {
           title: tell.title,
           tell: tell.tell,
         });
-        const temp = await mongoose.connection.db
-          .collection("tells")
-          .find({ title: tell.title })
-          .toArray();
+        const temp = await Tell.find({ title: tell.title });
         if (temp.length === 0) {
           await TellList.save();
         }
@@ -46,18 +47,22 @@ export const userSentences = async (req, res) => {
     // When user edits and updates their sentence after it has been created
     if (typeof req.body[0] === "string") {
       const [userID, sentenceInfo, updateUserSentences] = req.body;
-      await mongoose.connection.db
-        .collection("profiles")
-        .findOneAndUpdate(
-          { id: userID },
-          { $set: { sentences: updateUserSentences } }
-        );
-      await mongoose.connection.db.collection("sentences").findOneAndUpdate(
+      await Profile.findOneAndUpdate(
+        { id: userID },
+        {
+          $set: {
+            sentences: updateUserSentences,
+          },
+        }
+      );
+      await Sentence.findOneAndUpdate(
         { _id: mongoose.Types.ObjectId(sentenceInfo._id) },
         {
           $set: {
             show: sentenceInfo.show,
             createdAt: sentenceInfo.createdAt,
+            toRedo: false,
+            approved: false,
           },
         }
       );
@@ -76,12 +81,10 @@ export const userSentences = async (req, res) => {
       });
 
       await newSentence.save();
-      mongoose.connection.db
-        .collection("profiles")
-        .findOneAndUpdate(
-          { id: req.body.GID },
-          { $push: { sentences: newSentence } }
-        );
+      await Profile.findOneAndUpdate(
+        { id: req.body.GID },
+        { $push: { sentences: newSentence } }
+      );
       res.status(201).json(newSentence);
     }
   } catch (error) {
@@ -100,10 +103,7 @@ export const getUserInfo = async (req, res) => {
   // Register/Retrieve user
   try {
     // Check to see if user exists already
-    const checkUser = await mongoose.connection.db
-      .collection("profiles")
-      .find({ id: req.body.sub })
-      .toArray();
+    const checkUser = await Profile.find({ id: req.body.sub });
 
     // Create new user, if new
     if (checkUser.length === 0) {

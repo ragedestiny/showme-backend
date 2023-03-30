@@ -131,6 +131,11 @@ const tellList = [
     title: "Day 26",
     tell: "This test is hard.",
   },
+  {
+    key: 27,
+    title: "Day 27",
+    tell: "The flood was devastating.",
+  },
 ];
 
 export default tellList;
