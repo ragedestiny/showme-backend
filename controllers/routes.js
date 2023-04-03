@@ -129,8 +129,10 @@ export const getUserInfo = async (req, res) => {
   }
 };
 
+// Route for fetching all sentences awaiting approval
 export const getPendingApprovalSentences = async (req, res) => {
   try {
+    // fetch all sentences that are not approved
     const awaitingApproval = await Sentence.find({
       approved: false,
       toRedo: false,
@@ -141,11 +143,19 @@ export const getPendingApprovalSentences = async (req, res) => {
   }
 };
 
+// Route for approving or rejecting sentences
 export const updatePendingApprovalSentences = async (req, res) => {
   try {
-    const [status, sentence] = req.body;
+    const [status, user, sentence] = req.body;
+
+    // check to see if user is admin - safe guard
+    if (user.id !== process.env.ADMIN_ID)
+      throw new Error("You are not the admin!");
+
+    // find the target sentence in database
     const [checkedSentence] = await Sentence.find({ _id: sentence._id });
 
+    // update status depending if approve or needs redo
     if (status === "approve") {
       checkedSentence.approved = true;
     } else if (status === "redo") {
@@ -153,6 +163,7 @@ export const updatePendingApprovalSentences = async (req, res) => {
     }
     await checkedSentence.save();
 
+    // find and update user sentences
     const userSentences = await Sentence.find({
       author: mongoose.Types.ObjectId(sentence.author._id),
     });
@@ -166,6 +177,7 @@ export const updatePendingApprovalSentences = async (req, res) => {
       }
     );
 
+    // send back updated sentences
     const awaitingApproval = await Sentence.find({
       approved: false,
       toRedo: false,
