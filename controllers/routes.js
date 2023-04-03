@@ -5,6 +5,10 @@ import tellList from "../public/tellList.js";
 // Route for getting the Tell Sentences
 export const getTellSentences = async (req, res) => {
   try {
+    // await Sentence.updateMany({}, { $set: { toRedo: false } });
+    // await Profile.updateMany({}, [
+    //   { $addFields: { "sentences.toRedo": false } },
+    // ]);
     const NewList = await Promise.all(
       tellList.map(async (tell, i) => {
         const TellList = new Tell({
@@ -12,10 +16,7 @@ export const getTellSentences = async (req, res) => {
           title: tell.title,
           tell: tell.tell,
         });
-        const temp = await mongoose.connection.db
-          .collection("tells")
-          .find({ title: tell.title })
-          .toArray();
+        const temp = await Tell.find({ title: tell.title });
         if (temp.length === 0) {
           await TellList.save();
         }
@@ -45,23 +46,32 @@ export const userSentences = async (req, res) => {
 
     // When user edits and updates their sentence after it has been created
     if (typeof req.body[0] === "string") {
-      const [userID, sentenceInfo, updateUserSentences] = req.body;
-      await mongoose.connection.db
-        .collection("profiles")
-        .findOneAndUpdate(
-          { id: userID },
-          { $set: { sentences: updateUserSentences } }
-        );
-      await mongoose.connection.db.collection("sentences").findOneAndUpdate(
-        { _id: mongoose.Types.ObjectId(sentenceInfo._id) },
+      // destructure required information
+      const [userID, newSentence, sentenceInfo] = req.body;
+
+      // find sentence to replace
+      const [updateSentence] = await Sentence.find({
+        GID: userID,
+        title: sentenceInfo.title,
+      });
+      // update with new sentence
+      updateSentence.show = newSentence;
+      updateSentence.createdAt = new Date();
+      updateSentence.toRedo = false;
+      updateSentence.approved = false;
+      await updateSentence.save();
+
+      // grab and update all of user's sentences
+      const updateUserSentences = await Sentence.find({ GID: userID });
+      await Profile.findOneAndUpdate(
+        { id: userID },
         {
           $set: {
-            show: sentenceInfo.show,
-            createdAt: sentenceInfo.createdAt,
+            sentences: updateUserSentences,
           },
         }
       );
-      res.status(200).json(updateUserSentences);
+      res.status(201).json(updateSentence);
       return;
     }
 
@@ -76,12 +86,10 @@ export const userSentences = async (req, res) => {
       });
 
       await newSentence.save();
-      mongoose.connection.db
-        .collection("profiles")
-        .findOneAndUpdate(
-          { id: req.body.GID },
-          { $push: { sentences: newSentence } }
-        );
+      await Profile.findOneAndUpdate(
+        { id: req.body.GID },
+        { $push: { sentences: newSentence } }
+      );
       res.status(201).json(newSentence);
     }
   } catch (error) {
@@ -100,10 +108,7 @@ export const getUserInfo = async (req, res) => {
   // Register/Retrieve user
   try {
     // Check to see if user exists already
-    const checkUser = await mongoose.connection.db
-      .collection("profiles")
-      .find({ id: req.body.sub })
-      .toArray();
+    const checkUser = await Profile.find({ id: req.body.sub });
 
     // Create new user, if new
     if (checkUser.length === 0) {
@@ -119,6 +124,54 @@ export const getUserInfo = async (req, res) => {
       // Retrieve existing user info
       res.status(201).json(...checkUser);
     }
+  } catch (error) {
+    res.status(409).json({ message: error.message });
+  }
+};
+
+export const getPendingApprovalSentences = async (req, res) => {
+  try {
+    const awaitingApproval = await Sentence.find({
+      approved: false,
+      toRedo: false,
+    }).populate("author");
+    res.status(200).json(awaitingApproval);
+  } catch (error) {
+    res.status(409).json({ message: error.message });
+  }
+};
+
+export const updatePendingApprovalSentences = async (req, res) => {
+  try {
+    const [status, sentence] = req.body;
+    const [checkedSentence] = await Sentence.find({ _id: sentence._id });
+
+    if (status === "approve") {
+      checkedSentence.approved = true;
+    } else if (status === "redo") {
+      checkedSentence.toRedo = true;
+    }
+    await checkedSentence.save();
+
+    const userSentences = await Sentence.find({
+      author: mongoose.Types.ObjectId(sentence.author._id),
+    });
+
+    await Profile.findOneAndUpdate(
+      { _id: mongoose.Types.ObjectId(sentence.author._id) },
+      {
+        $set: {
+          sentences: userSentences,
+        },
+      }
+    );
+
+    const awaitingApproval = await Sentence.find({
+      approved: false,
+      toRedo: false,
+    }).populate("author");
+
+    res.status(201).json(awaitingApproval);
   } catch (error) {
     res.status(409).json({ message: error.message });
   }
