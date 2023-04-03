@@ -46,7 +46,23 @@ export const userSentences = async (req, res) => {
 
     // When user edits and updates their sentence after it has been created
     if (typeof req.body[0] === "string") {
-      const [userID, sentenceInfo, updateUserSentences] = req.body;
+      // destructure required information
+      const [userID, newSentence, sentenceInfo] = req.body;
+
+      // find sentence to replace
+      const [updateSentence] = await Sentence.find({
+        GID: userID,
+        title: sentenceInfo.title,
+      });
+      // update with new sentence
+      updateSentence.show = newSentence;
+      updateSentence.createdAt = new Date();
+      updateSentence.toRedo = false;
+      updateSentence.approved = false;
+      await updateSentence.save();
+
+      // grab and update all of user's sentences
+      const updateUserSentences = await Sentence.find({ GID: userID });
       await Profile.findOneAndUpdate(
         { id: userID },
         {
@@ -55,18 +71,7 @@ export const userSentences = async (req, res) => {
           },
         }
       );
-      await Sentence.findOneAndUpdate(
-        { _id: mongoose.Types.ObjectId(sentenceInfo._id) },
-        {
-          $set: {
-            show: sentenceInfo.show,
-            createdAt: sentenceInfo.createdAt,
-            toRedo: false,
-            approved: false,
-          },
-        }
-      );
-      res.status(200).json(updateUserSentences);
+      res.status(201).json(updateSentence);
       return;
     }
 
@@ -126,13 +131,48 @@ export const getUserInfo = async (req, res) => {
 
 export const getPendingApprovalSentences = async (req, res) => {
   try {
-    const awaitingApproval = await Sentence.find({ approved: false }).populate(
-      "author"
-    );
+    const awaitingApproval = await Sentence.find({
+      approved: false,
+      toRedo: false,
+    }).populate("author");
     res.status(200).json(awaitingApproval);
   } catch (error) {
     res.status(409).json({ message: error.message });
   }
 };
 
-export const updatePendingApprovalSentences = async (req, res) => {};
+export const updatePendingApprovalSentences = async (req, res) => {
+  try {
+    const [status, sentence] = req.body;
+    const [checkedSentence] = await Sentence.find({ _id: sentence._id });
+
+    if (status === "approve") {
+      checkedSentence.approved = true;
+    } else if (status === "redo") {
+      checkedSentence.toRedo = true;
+    }
+    await checkedSentence.save();
+
+    const userSentences = await Sentence.find({
+      author: mongoose.Types.ObjectId(sentence.author._id),
+    });
+
+    await Profile.findOneAndUpdate(
+      { _id: mongoose.Types.ObjectId(sentence.author._id) },
+      {
+        $set: {
+          sentences: userSentences,
+        },
+      }
+    );
+
+    const awaitingApproval = await Sentence.find({
+      approved: false,
+      toRedo: false,
+    }).populate("author");
+
+    res.status(201).json(awaitingApproval);
+  } catch (error) {
+    res.status(409).json({ message: error.message });
+  }
+};
