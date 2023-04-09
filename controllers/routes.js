@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import Profile, { Sentence, Tell } from "../models/sentences.js";
 import tellList from "../public/tellList.js";
 
@@ -37,10 +36,11 @@ export const userSentences = async (req, res) => {
       return;
     }
 
-    // When user first logged in, pull their existing sentences in the database
+    // Pull login user existing sentences from the database
     if (req.body.firstName) {
-      const Start = req.body.sentences;
-      res.status(200).json(Start);
+      const userID = req.body.id;
+      const userSentences = await Sentence.find({ GID: userID });
+      res.status(200).json(userSentences);
       return;
     }
 
@@ -60,17 +60,7 @@ export const userSentences = async (req, res) => {
       updateSentence.toRedo = false;
       updateSentence.approved = false;
       await updateSentence.save();
-
-      // grab and update all of user's sentences
-      const updateUserSentences = await Sentence.find({ GID: userID });
-      await Profile.findOneAndUpdate(
-        { id: userID },
-        {
-          $set: {
-            sentences: updateUserSentences,
-          },
-        }
-      );
+      // send back updated sentence
       res.status(201).json(updateSentence);
       return;
     }
@@ -86,10 +76,12 @@ export const userSentences = async (req, res) => {
       });
 
       await newSentence.save();
+      // add new sentence to the user own sentences
       await Profile.findOneAndUpdate(
         { id: req.body.GID },
-        { $push: { sentences: newSentence } }
+        { $push: { ownSentences: newSentence._id } }
       );
+      // send back newly created sentence
       res.status(201).json(newSentence);
     }
   } catch (error) {
@@ -108,7 +100,9 @@ export const getUserInfo = async (req, res) => {
   // Register/Retrieve user
   try {
     // Check to see if user exists already
-    const checkUser = await Profile.find({ id: req.body.sub });
+    const checkUser = await Profile.find({ id: req.body.sub }).populate(
+      "ownSentences"
+    );
 
     // Create new user, if new
     if (checkUser.length === 0) {
@@ -137,6 +131,10 @@ export const getPendingApprovalSentences = async (req, res) => {
       approved: false,
       toRedo: false,
     }).populate("author");
+    // sort sentences by date last edited
+    awaitingApproval.sort(
+      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
+    );
     res.status(200).json(awaitingApproval);
   } catch (error) {
     res.status(409).json({ message: error.message });
@@ -163,25 +161,14 @@ export const updatePendingApprovalSentences = async (req, res) => {
     }
     await checkedSentence.save();
 
-    // find and update user sentences
-    const userSentences = await Sentence.find({
-      author: mongoose.Types.ObjectId(sentence.author._id),
-    });
-
-    await Profile.findOneAndUpdate(
-      { _id: mongoose.Types.ObjectId(sentence.author._id) },
-      {
-        $set: {
-          sentences: userSentences,
-        },
-      }
-    );
-
-    // send back updated sentences
+    // send back sorted updated sentences
     const awaitingApproval = await Sentence.find({
       approved: false,
       toRedo: false,
     }).populate("author");
+    awaitingApproval.sort(
+      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
+    );
 
     res.status(201).json(awaitingApproval);
   } catch (error) {

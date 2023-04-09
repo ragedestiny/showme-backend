@@ -61,8 +61,18 @@ const profileSchema = new mongoose.Schema({
     type: Date,
     default: new Date(),
   },
-  sentences: [sentenceSchema],
-  likedSentences: [sentenceSchema],
+  ownSentences: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Sentence",
+    },
+  ],
+  likedSentences: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Sentence",
+    },
+  ],
 });
 
 // Creating mongoose model
