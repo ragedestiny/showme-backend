@@ -1,6 +1,6 @@
 # Show ME
 
-> Show ME is used as a tool to help students write vivid and exciting sentences. Each day of the challenge, students will be given a different simple tell sentence and the goal is for the student to formulate and come up a more descriptive sentence. Show ME will keep track of the submitted sentences and students can edit them at any time. This is the backend server.
+> Show ME is used as a tool to help students write vivid and exciting sentences. Each day of the challenge, students will be given a different simple tell sentence. The goal is for the student to formulate and come up with a more descriptive sentence. Show ME will keep track of the submitted sentences, and students can edit them at any time. This is the backend server.
 
 > Live website [_here_](https://show-me-not-tell.netlify.app/).
 >
@@ -17,7 +17,7 @@
 
 ## General Information
 
-- As a tutor, my goal is to help students achieve greater heights in their English class. One way to do this is to write better and more descriptively rather than simple and plainly. Before creating this web app, my students would have to keep track of their sentences on a standard paper notebook. The paper notebook would eventually get lost and it was hard to keep track of what their sentences were. In order to make this exercise more steamline and efficient, creating a web app was the way to go.
+- As a tutor, my goal is to help students achieve greater heights in their English class. One way to do this is to write better and more descriptively rather than simply and plainly. Before creating this web app, my students had to keep track of their sentences in a standard paper notebook. The paper notebook would eventually get lost, and it was hard to keep track of what their sentences were. In order to make this exercise more steamlined and efficient, creating a web app was the way to go.
 
 ## Technologies Used
 
@@ -30,6 +30,7 @@
 - Login with school google account (every student has a school Google account)
 - Personal page where students can create and edit show sentences
 - Admin can approve or reject show sentences
+- Display students' sentences in Collections Page after approval
 
 ## Setup
 
@@ -47,4 +48,5 @@ Project is: _in progress_
 
 To do:
 
-- Collection page displaying sample approved student sentences
+- Create content to guide students how to do it even if they are not my students
+- 'LIKE' feature where students can like other students' sentences

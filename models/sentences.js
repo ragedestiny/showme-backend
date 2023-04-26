@@ -5,6 +5,10 @@ const tellSchema = new mongoose.Schema({
   key: Number,
   title: String,
   tell: String,
+  image: {
+    type: String,
+    default: "",
+  },
 });
 
 // User sentence schema

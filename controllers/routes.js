@@ -14,6 +14,7 @@ export const getTellSentences = async (req, res) => {
           key: tell.key,
           title: tell.title,
           tell: tell.tell,
+          image: tell.image,
         });
         const temp = await Tell.find({ title: tell.title });
         if (temp.length === 0) {
@@ -171,6 +172,24 @@ export const updatePendingApprovalSentences = async (req, res) => {
     );
 
     res.status(201).json(awaitingApproval);
+  } catch (error) {
+    res.status(409).json({ message: error.message });
+  }
+};
+
+// fetch approved sentences from database
+export const fetchApprovedSentences = async (req, res) => {
+  try {
+    // find all approved sentences
+    const approvedSentences = await Sentence.find({
+      approved: true,
+    }).populate("author");
+    // sort the approved sentences by date created
+    approvedSentences.sort(
+      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
+    );
+
+    res.status(201).json(approvedSentences);
   } catch (error) {
     res.status(409).json({ message: error.message });
   }
