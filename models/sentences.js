@@ -55,7 +55,6 @@ const profileSchema = new mongoose.Schema({
   },
   lastName: {
     type: String,
-    required: true,
   },
   grade: {
     type: String,

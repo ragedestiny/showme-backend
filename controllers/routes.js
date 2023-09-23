@@ -106,11 +106,18 @@ export const getUserInfo = async (req, res) => {
     );
 
     // Create new user, if new
-    if (checkUser.length === 0) {
+    if (checkUser.length === 0 || Object.keys(checkUser).length === 0) {
+      const fName =
+        req.body.given_name[0].toUpperCase() + req.body.given_name.slice(1);
+      const lName = req.body.family_name
+        ? req.body?.family_name[0]?.toUpperCase() +
+          req.body?.family_name?.slice(1)
+        : "";
+
       const User = new Profile({
         id: req.body.sub,
-        firstName: req.body.given_name,
-        lastName: req.body.family_name,
+        firstName: fName,
+        lastName: lName,
         email: req.body.email,
       });
       const newUser = await User.save();
