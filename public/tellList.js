@@ -181,6 +181,36 @@ const tellList = [
     tell: "Describe your favorite pastime.",
     image: "/sentenceimages/day 30 - Describe your favorite pastime.jpg",
   },
+  {
+    key: 31,
+    title: "Day 31",
+    tell: "He dodged all the traps with ease. (Use a Simile)",
+    image: "/sentenceimages/day 31 - mouse trap.jpg",
+  },
+  {
+    key: 32,
+    title: "Day 32",
+    tell: "The hot soup burned my mouth. (Use a Metaphor)",
+    image: "/sentenceimages/day 32 - hot soup.jpg",
+  },
+  {
+    key: 33,
+    title: "Day 33",
+    tell: "The gale blew the flowers back and forth. (Use Personification)",
+    image: "/sentenceimages/day 33 - flowers in the wind.jpg",
+  },
+  {
+    key: 34,
+    title: "Day 34",
+    tell: "I lost my bike, and I got an F on my math test. (Use Hyperbole)",
+    image: "/sentenceimages/day 34 - failed test.jpg",
+  },
+  {
+    key: 35,
+    title: "Day 35",
+    tell: "My mom is weak in the knee whenever she sees a mouse. (Use an Allusion)",
+    image: "/sentenceimages/day 35 - mom is afraid of mouse.jpg",
+  },
 ];
 
 export default tellList;
