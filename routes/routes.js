@@ -1,6 +1,7 @@
 import express from "express";
 import {
   userSentences,
+  editUserSentences,
   getTellSentences,
   getUserInfo,
   getPendingApprovalSentences,
@@ -16,6 +17,7 @@ router.get("/", (req, res) => {
 
 // Route for create/update/fetch user sentences
 router.post("/MyPage", userSentences);
+router.put("/MyPage", editUserSentences);
 
 // Route for fetching Tell sentences
 router.get("/Login", getTellSentences);
@@ -27,7 +29,7 @@ router.post("/Login", getUserInfo);
 router.get("/Admin", getPendingApprovalSentences);
 
 // Route for updating status on sentences awaiting approval
-router.post("/Admin", updatePendingApprovalSentences);
+router.patch("/Admin", updatePendingApprovalSentences);
 
 // Route for getting approved sentences
 router.get("/Collections", fetchApprovedSentences);

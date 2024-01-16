@@ -45,27 +45,6 @@ export const userSentences = async (req, res) => {
       return;
     }
 
-    // When user edits and updates their sentence after it has been created
-    if (typeof req.body[0] === "string") {
-      // destructure required information
-      const [userID, newSentence, sentenceInfo] = req.body;
-
-      // find sentence to replace
-      const [updateSentence] = await Sentence.find({
-        GID: userID,
-        title: sentenceInfo.title,
-      });
-      // update with new sentence
-      updateSentence.show = newSentence;
-      updateSentence.createdAt = new Date();
-      updateSentence.toRedo = false;
-      updateSentence.approved = false;
-      await updateSentence.save();
-      // send back updated sentence
-      res.status(201).json(updateSentence);
-      return;
-    }
-
     if (req.body.show) {
       // When User creates a new show sentence
       const newSentence = new Sentence({
@@ -85,6 +64,29 @@ export const userSentences = async (req, res) => {
       // send back newly created sentence
       res.status(201).json(newSentence);
     }
+  } catch (error) {
+    res.status(409).json({ message: error.message });
+  }
+};
+
+export const editUserSentences = async (req, res) => {
+  try {
+    const [userID, newSentence, sentenceInfo] = req.body;
+    // find sentence to replace
+    const [updateSentence] = await Sentence.find({
+      GID: userID,
+      title: sentenceInfo.title,
+    });
+
+    // update with new sentence
+    updateSentence.show = newSentence;
+    updateSentence.createdAt = new Date();
+    updateSentence.toRedo = false;
+    updateSentence.approved = false;
+    await updateSentence.save();
+    // send back updated sentence
+
+    res.status(201).json(updateSentence);
   } catch (error) {
     res.status(409).json({ message: error.message });
   }
