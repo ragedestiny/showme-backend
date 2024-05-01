@@ -17,6 +17,12 @@ jobs:
         uses: actions/setup-node@v4  # Update to the latest version that supports Node.js 20
         with:
           node-version: '20'
+          
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Authenticate Firebase
+        run: firebase login:ci --interactive
 
       - name: Deploy Functions
         env:
