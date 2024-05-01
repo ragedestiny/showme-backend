@@ -26,6 +26,10 @@ jobs:
 
       - name: Deploy Functions
         env:
+          DATABASE_ACCESS: ${{ secrets.DATABASE_ACCESS }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          ADMIN_ID: ${{ secrets.ADMIN_ID }}
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: firebase deploy --only functions --token $FIREBASE_TOKEN
 
