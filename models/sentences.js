@@ -76,6 +76,10 @@ const profileSchema = new mongoose.Schema({
       ref: "Sentence",
     },
   ],
+  isAdmin: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 // Creating mongoose model

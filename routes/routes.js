@@ -7,6 +7,7 @@ import {
   getPendingApprovalSentences,
   updatePendingApprovalSentences,
   fetchApprovedSentences,
+  logoutUser,
 } from "../controllers/routes.js";
 
 const router = express.Router();
@@ -24,6 +25,9 @@ router.get("/Login", getTellSentences);
 
 // Route for getting user info
 router.post("/Login", getUserInfo);
+
+// Route for logging out user
+router.post("/Logout", logoutUser);
 
 // Route for getting sentences awaiting approval
 router.get("/Admin", getPendingApprovalSentences);
