@@ -8,6 +8,7 @@ export const getTellSentences = async (req, res) => {
     // await Profile.updateMany({}, [
     //   { $addFields: { "sentences.toRedo": false } },
     // ]);
+    // await Profile.updateMany({}, { $set: { isAdmin: false } });
     const NewList = await Promise.all(
       tellList.map(async (tell, i) => {
         const TellList = new Tell({
@@ -92,14 +93,13 @@ export const editUserSentences = async (req, res) => {
   }
 };
 
+export const logoutUser = async (req, res) => {
+  // Sign out User
+  res.json();
+};
+
 // Route for register/Retrieve/signout user
 export const getUserInfo = async (req, res) => {
-  // sign out user
-  if (Object.keys(req.body).length === 0) {
-    res.json();
-    return;
-  }
-
   // Register/Retrieve user
   try {
     // Check to see if user exists already
