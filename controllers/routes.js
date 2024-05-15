@@ -96,7 +96,6 @@ export const editUserSentences = async (req, res) => {
 export const logoutUser = async (req, res) => {
   // Sign out User
   res.json();
-  // Test
 };
 
 // Route for register/Retrieve/signout user
