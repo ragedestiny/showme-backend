@@ -1,24 +1,24 @@
-import Profile, { Sentence, Tell } from "../models/sentences.js";
+import { Sentence, Tell } from "../models/sentences.js";
+import Profile from "../models/profile.js";
 import tellList from "../public/tellList.js";
 
 // Route for getting the Tell Sentences
 export const getTellSentences = async (req, res) => {
   try {
-    // await Sentence.updateMany({}, { $set: { toRedo: false } });
     // await Profile.updateMany({}, [
     //   { $addFields: { "sentences.toRedo": false } },
     // ]);
     // await Profile.updateMany({}, { $set: { isAdmin: false } });
     const NewList = await Promise.all(
-      tellList.map(async (tell, i) => {
+      tellList.map(async (tell) => {
         const TellList = new Tell({
           key: tell.key,
           title: tell.title,
           tell: tell.tell,
           image: tell.image,
         });
-        const temp = await Tell.find({ title: tell.title });
-        if (temp.length === 0) {
+        const existingTell = await Tell.find({ title: tell.title });
+        if (!existingTell) {
           await TellList.save();
         }
         return TellList;
@@ -30,57 +30,48 @@ export const getTellSentences = async (req, res) => {
   }
 };
 
-// Route for retrieving/creating/updating the User sentences
-export const userSentences = async (req, res) => {
+export const getUserSentences = async (req, res) => {
   try {
-    // If no user logged in, return no sentences
-    if (req.body?.length === 0) {
-      return;
-    }
+    const userSentences = await Sentence.find({ GID: req.userId });
 
-    // Pull login user existing sentences from the database
-    if (req.body.firstName) {
-      const userID = req.body.id;
-      const userSentences = await Sentence.find({ GID: userID });
-      res.status(200).json(userSentences);
-      return;
-    }
+    res.status(200).json(userSentences);
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
 
-    if (req.body.show) {
-      // When User creates a new show sentence
-      const newSentence = new Sentence({
-        title: req.body.title,
-        tell: req.body.tell,
-        show: req.body.show,
-        author: req.body.author,
-        GID: req.body.GID,
-      });
+export const createNewUserSentence = async (req, res) => {
+  try {
+    const { show, title, tell, author, GID } = req.body;
 
-      await newSentence.save();
-      // add new sentence to the user own sentences
-      await Profile.findOneAndUpdate(
-        { id: req.body.GID },
-        { $push: { ownSentences: newSentence._id } }
-      );
-      // send back newly created sentence
-      res.status(201).json(newSentence);
-    }
+    // When User creates a new show sentence
+    const newSentence = new Sentence({ title, tell, show, author, GID });
+    await newSentence.save();
+    await Profile.findOneAndUpdate(
+      { id: GID },
+      { $push: { ownSentences: newSentence._id } }
+    );
+    res.status(201).json(newSentence);
   } catch (error) {
     res.status(409).json({ message: error.message });
   }
 };
 
-export const editUserSentences = async (req, res) => {
+export const editUserSentence = async (req, res) => {
   try {
-    const [userID, newSentence, sentenceInfo] = req.body;
+    const { title, show } = req.body;
     // find sentence to replace
-    const [updateSentence] = await Sentence.find({
-      GID: userID,
-      title: sentenceInfo.title,
+    const updateSentence = await Sentence.findOne({
+      GID: req.userId,
+      title: title,
     });
 
+    if (!updateSentence) {
+      return res.status(404).json({ message: "Sentence not found" });
+    }
+
     // update with new sentence
-    updateSentence.show = newSentence;
+    updateSentence.show = show;
     updateSentence.createdAt = new Date();
     updateSentence.toRedo = false;
     updateSentence.approved = false;
@@ -102,34 +93,16 @@ export const logoutUser = async (req, res) => {
 export const getUserInfo = async (req, res) => {
   // Register/Retrieve user
   try {
-    // Check to see if user exists already
-    const checkUser = await Profile.find({ id: req.body.sub }).populate(
+    const user = await Profile.findOne({ id: req.userId }).populate(
       "ownSentences"
     );
 
-    // Create new user, if new
-    if (checkUser.length === 0 || Object.keys(checkUser).length === 0) {
-      const fName =
-        req.body.given_name[0].toUpperCase() + req.body.given_name.slice(1);
-      const lName = req.body.family_name
-        ? req.body?.family_name[0]?.toUpperCase() +
-          req.body?.family_name?.slice(1)
-        : "";
-
-      const User = new Profile({
-        id: req.body.sub,
-        firstName: fName,
-        lastName: lName,
-        email: req.body.email,
-      });
-      const newUser = await User.save();
-      res.status(201).json(newUser);
-    } else {
-      // Retrieve existing user info
-      res.status(201).json(...checkUser);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
+    res.status(200).json(user);
   } catch (error) {
-    res.status(409).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -154,20 +127,26 @@ export const getPendingApprovalSentences = async (req, res) => {
 // Route for approving or rejecting sentences
 export const updatePendingApprovalSentences = async (req, res) => {
   try {
-    const [status, user, sentence] = req.body;
+    const user = await Profile.findOne({ id: req.userId });
 
-    // check to see if user is admin - safe guard
-    if (user.id !== process.env.ADMIN_ID)
-      throw new Error("You are not the admin!");
+    if (!user.isAdmin) {
+      return res.status(403).json({ message: "You are not the admin!" });
+    }
+    const { status, sentence } = req.body;
 
-    // find the target sentence in database
-    const [checkedSentence] = await Sentence.find({ _id: sentence._id });
+    const checkedSentence = await Sentence.findById(sentence._id);
+
+    if (!checkedSentence) {
+      return res.status(404).json({ message: "Sentence not found" });
+    }
 
     // update status depending if approve or needs redo
     if (status === "approve") {
       checkedSentence.approved = true;
+      checkedSentence.toRedo = false; // Ensure redo flag is cleared if approved
     } else if (status === "redo") {
       checkedSentence.toRedo = true;
+      checkedSentence.approved = false; // Ensure approved flag is cleared if redo
     }
     await checkedSentence.save();
 
@@ -176,6 +155,8 @@ export const updatePendingApprovalSentences = async (req, res) => {
       approved: false,
       toRedo: false,
     }).populate("author");
+
+    // Sort by creation date in descending order
     awaitingApproval.sort(
       (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
     );
