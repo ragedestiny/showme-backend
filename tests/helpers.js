@@ -23,7 +23,7 @@ export const createAdmin = (overrides = {}) =>
 
 // Sign a JWT exactly the way controllers/auth.js does after a Google login.
 export const tokenFor = (user, options = { expiresIn: "1h" }) =>
-  jwt.sign({ id: user.id }, process.env.JWT_SECRET, options);
+  jwt.sign({ id: user.id, v: user.tokenVersion ?? 0 }, process.env.JWT_SECRET, options);
 
 export const bearer = (user) => `Bearer ${tokenFor(user)}`;
 

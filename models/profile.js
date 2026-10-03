@@ -41,6 +41,12 @@ const profileSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  // Written into every login token. Logging out adds 1, so every token
+  // issued before that (including stolen copies) stops matching.
+  tokenVersion: {
+    type: Number,
+    default: 0,
+  },
 });
 
 const Profile = mongoose.model("Profile", profileSchema);

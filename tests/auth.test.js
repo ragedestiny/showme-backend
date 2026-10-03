@@ -185,28 +185,102 @@ describe("auth middleware (via GET /Login)", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 404 when the token is valid but the user no longer exists", async () => {
+  it("rejects a valid token whose user no longer exists (401)", async () => {
     const user = await createUser();
     const auth = bearer(user);
     await Profile.deleteOne({ _id: user._id });
 
     const res = await request(app).get("/Login").set("Authorization", auth);
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(401);
   });
 });
 
 describe("POST /Logout", () => {
-  it("responds 200", async () => {
-    const res = await request(app).post("/Logout");
+  // A cookie is deleted by sending it again with an expiry date in the past.
+  const clearsSessionCookie = (res) =>
+    res.headers["set-cookie"]?.some(
+      (c) => c.startsWith("session=;") && c.includes("Expires=Thu, 01 Jan 1970")
+    );
+
+  it("tells the browser to delete the session cookie", async () => {
+    const user = await createUser();
+
+    const res = await request(app).post("/Logout").set("Cookie", sessionCookie(user));
+
     expect(res.status).toBe(200);
+    expect(clearsSessionCookie(res)).toBe(true);
   });
 
-  it("CURRENT BUG: the token keeps working after logout", async () => {
+  it("cancels the token, so a copied cookie stops working", async () => {
+    const user = await createUser();
+    const copiedCookie = sessionCookie(user);
+
+    await request(app).post("/Logout").set("Cookie", copiedCookie);
+    const res = await request(app).get("/Login").set("Cookie", copiedCookie);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("cancels the token sent the old way (Authorization header) too", async () => {
     const user = await createUser();
     const auth = bearer(user);
 
     await request(app).post("/Logout").set("Authorization", auth);
     const res = await request(app).get("/Login").set("Authorization", auth);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("logs the user out on every device", async () => {
+    const user = await createUser();
+    const laptop = sessionCookie(user);
+    const phone = sessionCookie(user);
+
+    await request(app).post("/Logout").set("Cookie", phone);
+    const res = await request(app).get("/Login").set("Cookie", laptop);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("lets the user log in again afterwards with a fresh token", async () => {
+    const user = await createUser();
+    await request(app).post("/Logout").set("Cookie", sessionCookie(user));
+
+    const fresh = await Profile.findById(user._id); // now on version 1
+    const res = await request(app).get("/Login").set("Cookie", sessionCookie(fresh));
+
+    expect(res.status).toBe(200);
+  });
+
+  it("still succeeds and clears the cookie with no token or an expired one", async () => {
+    const user = await createUser();
+    const expired = `session=${tokenFor(user, { expiresIn: -10 })}`;
+
+    const none = await request(app).post("/Logout");
+    const old = await request(app).post("/Logout").set("Cookie", expired);
+
+    expect(none.status).toBe(200);
+    expect(clearsSessionCookie(none)).toBe(true);
+    expect(old.status).toBe(200);
+    expect(clearsSessionCookie(old)).toBe(true);
+  });
+});
+
+describe("token version", () => {
+  it("puts the user's current token version in the token at login", async () => {
+    await createUser({ id: "google-new-user", email: "x@example.com", tokenVersion: 3 });
+
+    const res = await request(app).post("/auth").send({ token: "t" });
+
+    const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET);
+    expect(decoded.v).toBe(3);
+  });
+
+  it("still accepts tokens issued before versions existed (no v), for users still on version 0", async () => {
+    const user = await createUser();
+    const legacy = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+    const res = await request(app).get("/Login").set("Cookie", `session=${legacy}`);
 
     expect(res.status).toBe(200);
   });

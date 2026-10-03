@@ -45,9 +45,12 @@ export const googleAuth = async (req, res) => {
       await user.save();
     }
 
-    const customToken = jwt.sign({ id: sub }, process.env.JWT_SECRET, {
-      expiresIn: SESSION_SECONDS,
-    });
+    // v = the user's current token version; logging out changes it.
+    const customToken = jwt.sign(
+      { id: sub, v: user.tokenVersion },
+      process.env.JWT_SECRET,
+      { expiresIn: SESSION_SECONDS }
+    );
 
     // The browser stores this cookie and sends it back on every request.
     // Express wants maxAge in milliseconds.
