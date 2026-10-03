@@ -1,0 +1,81 @@
+import { describe, expect, it } from "vitest";
+import request from "supertest";
+import app from "../app.js";
+import { Sentence } from "../models/sentences.js";
+import { bearer, createAdmin, createSentence, createUser } from "./helpers.js";
+
+describe("/Admin access control", () => {
+  it.each(["get", "patch"])("%s without a token returns 401", async (method) => {
+    const res = await request(app)[method]("/Admin");
+    expect(res.status).toBe(401);
+  });
+
+  it.each(["get", "patch"])("%s as a non-admin returns 403", async (method) => {
+    const user = await createUser();
+    const res = await request(app)[method]("/Admin").set("Authorization", bearer(user));
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("GET /Admin", () => {
+  it("lists sentences awaiting review, newest first, with authors", async () => {
+    const admin = await createAdmin();
+    const user = await createUser();
+    await createSentence(user, { show: "older", createdAt: new Date("2024-01-01") });
+    await createSentence(user, { show: "newer", createdAt: new Date("2024-02-01") });
+    await createSentence(user, { show: "approved", approved: true });
+    await createSentence(user, { show: "sent back", toRedo: true });
+
+    const res = await request(app).get("/Admin").set("Authorization", bearer(admin));
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((s) => s.show)).toEqual(["newer", "older"]);
+    expect(res.body[0].author.firstName).toBe("Ada");
+  });
+});
+
+describe("PATCH /Admin", () => {
+  it("approves a sentence and returns the remaining queue", async () => {
+    const admin = await createAdmin();
+    const user = await createUser();
+    const target = await createSentence(user, { show: "approve me" });
+    await createSentence(user, { show: "still waiting" });
+
+    const res = await request(app)
+      .patch("/Admin")
+      .set("Authorization", bearer(admin))
+      .send({ status: "approve", sentence: { _id: target._id } });
+
+    expect(res.status).toBe(201);
+    expect(res.body.map((s) => s.show)).toEqual(["still waiting"]);
+    const saved = await Sentence.findById(target._id);
+    expect(saved.approved).toBe(true);
+    expect(saved.toRedo).toBe(false);
+  });
+
+  it("sends a sentence back for a redo", async () => {
+    const admin = await createAdmin();
+    const user = await createUser();
+    const target = await createSentence(user, { approved: true });
+
+    await request(app)
+      .patch("/Admin")
+      .set("Authorization", bearer(admin))
+      .send({ status: "redo", sentence: { _id: target._id } });
+
+    const saved = await Sentence.findById(target._id);
+    expect(saved.toRedo).toBe(true);
+    expect(saved.approved).toBe(false);
+  });
+
+  it("returns 404 for a sentence that doesn't exist", async () => {
+    const admin = await createAdmin();
+
+    const res = await request(app)
+      .patch("/Admin")
+      .set("Authorization", bearer(admin))
+      .send({ status: "approve", sentence: { _id: "65f000000000000000000000" } });
+
+    expect(res.status).toBe(404);
+  });
+});

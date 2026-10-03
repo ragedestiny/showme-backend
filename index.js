@@ -1,35 +1,19 @@
+// Must be the first import: ES module imports all run before the rest of the
+// file, so this loads .env before any other module reads process.env.
+import "dotenv/config";
 import * as functions from "firebase-functions";
-import * as dotenv from "dotenv";
-import express from "express";
-import bodyParser from "body-parser";
 import mongoose from "mongoose";
-import cors from "cors";
-import routerUrls from "./routes/routes.js";
-dotenv.config();
-
-const app = express();
-
-app.use(express.static("public"));
-
-app.use(bodyParser.json({ limit: "30mb", extended: true }));
-app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
-app.use(cors());
-
-// '/' will the be the start of all routes
-app.use("/", routerUrls);
-
-const PORT = process.env.PORT || 5000;
+import app from "./app.js";
 
 mongoose.set("strictQuery", false);
-// Connect to mongodb via mongoose
+// Connect to mongodb via mongoose. DATABASE_NAME overrides the database in the
+// connection string; set it in .env.local so only the emulator uses the dev DB.
 mongoose
   .connect(process.env.DATABASE_ACCESS, {
+    dbName: process.env.DATABASE_NAME,
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  // .then(() =>
-  //   app.listen(PORT, () => console.log(`Server running on port : ${PORT}`))
-  // )
   .catch((error) => console.log(error.message));
 
 // Export the Express app as a Cloud Function
