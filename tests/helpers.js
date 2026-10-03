@@ -27,6 +27,9 @@ export const tokenFor = (user, options = { expiresIn: "1h" }) =>
 
 export const bearer = (user) => `Bearer ${tokenFor(user)}`;
 
+// The Cookie header a browser sends back after logging in.
+export const sessionCookie = (user) => `session=${tokenFor(user)}`;
+
 export const createSentence = (user, overrides = {}) =>
   Sentence.create({
     title: "The room was messy.",

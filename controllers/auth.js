@@ -1,6 +1,11 @@
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import Profile from "../models/profile.js";
+import {
+  SESSION_COOKIE,
+  SESSION_SECONDS,
+  sessionCookieOptions,
+} from "../config/session.js";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -41,9 +46,18 @@ export const googleAuth = async (req, res) => {
     }
 
     const customToken = jwt.sign({ id: sub }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
+      expiresIn: SESSION_SECONDS,
     });
 
+    // The browser stores this cookie and sends it back on every request.
+    // Express wants maxAge in milliseconds.
+    res.cookie(SESSION_COOKIE, customToken, {
+      ...sessionCookieOptions,
+      maxAge: SESSION_SECONDS * 1000,
+    });
+
+    // TEMPORARY: the token is also in the body so the frontend that's live
+    // today (which reads it from here) keeps working until it's updated.
     res.status(200).json({ token: customToken, user });
   } catch (error) {
     res

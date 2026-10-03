@@ -3,7 +3,13 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import app from "../app.js";
 import Profile from "../models/profile.js";
-import { bearer, createSentence, createUser, tokenFor } from "./helpers.js";
+import {
+  bearer,
+  createSentence,
+  createUser,
+  sessionCookie,
+  tokenFor,
+} from "./helpers.js";
 
 // We never call Google in tests. vi.mock swaps the real google-auth-library
 // for a fake whose verifyIdToken we control. vi.hoisted makes the fake
@@ -64,6 +70,34 @@ describe("POST /auth (exchange a Google ID token for our JWT)", () => {
     const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET);
     expect(decoded.id).toBe("google-new-user");
     expect(decoded.exp - decoded.iat).toBe(60 * 60);
+  });
+
+  it("sets the token in an httpOnly, Secure, SameSite=Lax session cookie", async () => {
+    const res = await request(app).post("/auth").send({ token: "t" });
+
+    const cookie = res.headers["set-cookie"]?.find((c) => c.startsWith("session="));
+    expect(cookie).toBeDefined();
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("Secure");
+    expect(cookie).toContain("SameSite=Lax");
+    expect(cookie).toContain("Path=/");
+  });
+
+  it("makes the cookie last exactly as long as the token inside it", async () => {
+    const res = await request(app).post("/auth").send({ token: "t" });
+
+    const cookie = res.headers["set-cookie"].find((c) => c.startsWith("session="));
+    const token = cookie.split(";")[0].slice("session=".length);
+    const { iat, exp } = jwt.verify(token, process.env.JWT_SECRET);
+    expect(cookie).toContain(`Max-Age=${exp - iat}`);
+  });
+
+  it("doesn't set a cookie when the Google token is rejected", async () => {
+    verifyIdToken.mockRejectedValue(new Error("Invalid token signature"));
+
+    const res = await request(app).post("/auth").send({ token: "forged" });
+
+    expect(res.headers["set-cookie"]).toBeUndefined();
   });
 
   it("rejects a Google token that fails verification with 401", async () => {
@@ -132,6 +166,23 @@ describe("auth middleware (via GET /Login)", () => {
     expect(res.status).toBe(200);
     expect(res.body.email).toBe("ada@example.com");
     expect(res.body.ownSentences[0].show).toBe("Clothes carpeted the floor.");
+  });
+
+  it("accepts a valid session cookie", async () => {
+    const user = await createUser();
+
+    const res = await request(app).get("/Login").set("Cookie", sessionCookie(user));
+
+    expect(res.status).toBe(200);
+    expect(res.body.email).toBe("ada@example.com");
+  });
+
+  it("rejects a forged session cookie", async () => {
+    const forged = jwt.sign({ id: "google-user-1" }, "attacker-secret");
+
+    const res = await request(app).get("/Login").set("Cookie", `session=${forged}`);
+
+    expect(res.status).toBe(401);
   });
 
   it("returns 404 when the token is valid but the user no longer exists", async () => {
