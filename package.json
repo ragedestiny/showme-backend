@@ -8,7 +8,9 @@
     "start": "nodemon index.js",
     "dev": "nodemon index.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "emulators": "firebase emulators:start --only functions",
+    "seed:dev": "node scripts/seed-dev.js"
   },
   "keywords": [],
   "author": "",
