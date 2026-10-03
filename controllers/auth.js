@@ -1,18 +1,30 @@
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import Profile from "../models/profile.js";
+import {
+  SESSION_COOKIE,
+  SESSION_SECONDS,
+  sessionCookieOptions,
+} from "../config/session.js";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export const googleAuth = async (req, res) => {
   const { token } = req.body;
 
+  // Check the Google token on its own, so a bad token gets 401 ("show valid
+  // ID") instead of 500 ("our server broke").
+  let ticket;
   try {
-    const ticket = await client.verifyIdToken({
+    ticket = await client.verifyIdToken({
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
+  } catch (error) {
+    return res.status(401).json({ message: "Invalid Google token" });
+  }
 
+  try {
     const { sub, given_name, family_name, email } = ticket.getPayload();
 
     let user = await Profile.findOne({ id: sub }).populate("ownSentences");
@@ -33,10 +45,22 @@ export const googleAuth = async (req, res) => {
       await user.save();
     }
 
-    const customToken = jwt.sign({ id: sub }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
+    // v = the user's current token version; logging out changes it.
+    const customToken = jwt.sign(
+      { id: sub, v: user.tokenVersion },
+      process.env.JWT_SECRET,
+      { expiresIn: SESSION_SECONDS }
+    );
+
+    // The browser stores this cookie and sends it back on every request.
+    // Express wants maxAge in milliseconds.
+    res.cookie(SESSION_COOKIE, customToken, {
+      ...sessionCookieOptions,
+      maxAge: SESSION_SECONDS * 1000,
     });
 
+    // TEMPORARY: the token is also in the body so the frontend that's live
+    // today (which reads it from here) keeps working until it's updated.
     res.status(200).json({ token: customToken, user });
   } catch (error) {
     res

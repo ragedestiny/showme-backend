@@ -1,6 +1,8 @@
 import { Sentence, Tell } from "../models/sentences.js";
 import Profile from "../models/profile.js";
 import tellList from "../public/tellList.js";
+import { readSession } from "../middlewares/auth.js";
+import { SESSION_COOKIE, sessionCookieOptions } from "../config/session.js";
 
 // Route for getting the Tell Sentences
 export const getTellSentences = async (req, res) => {
@@ -42,15 +44,27 @@ export const getUserSentences = async (req, res) => {
 
 export const createNewUserSentence = async (req, res) => {
   try {
-    const { show, title, tell, author, GID } = req.body;
+    // Only the sentence text comes from the browser. Who wrote it comes from
+    // the verified token (req.userId), never from the request body, which
+    // anyone can edit.
+    const { show, title, tell } = req.body;
+
+    const user = await Profile.findOne({ id: req.userId });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     // When User creates a new show sentence
-    const newSentence = new Sentence({ title, tell, show, author, GID });
+    const newSentence = new Sentence({
+      title,
+      tell,
+      show,
+      author: user._id,
+      GID: user.id,
+    });
     await newSentence.save();
-    await Profile.findOneAndUpdate(
-      { id: GID },
-      { $push: { ownSentences: newSentence._id } }
-    );
+    user.ownSentences.push(newSentence._id);
+    await user.save();
     res.status(201).json(newSentence);
   } catch (error) {
     res.status(409).json({ message: error.message });
@@ -85,8 +99,21 @@ export const editUserSentence = async (req, res) => {
 };
 
 export const logoutUser = async (req, res) => {
-  // Sign out User
-  res.json();
+  try {
+    // If the request carries a valid login, bump the user's token version so
+    // that token, and every copy of it, stops working.
+    const session = readSession(req);
+    if (session) {
+      await Profile.updateOne({ id: session.id }, { $inc: { tokenVersion: 1 } });
+    }
+
+    // Always tell the browser to delete its cookie, even if the token was
+    // missing or already expired. The options must match the ones it was set with.
+    res.clearCookie(SESSION_COOKIE, sessionCookieOptions);
+    res.status(200).json({ message: "Logged out" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 // Route for register/Retrieve/signout user

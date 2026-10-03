@@ -23,7 +23,7 @@ const profileSchema = new mongoose.Schema({
   },
   dateJoined: {
     type: Date,
-    default: new Date(),
+    default: Date.now,
   },
   ownSentences: [
     {
@@ -40,6 +40,12 @@ const profileSchema = new mongoose.Schema({
   isAdmin: {
     type: Boolean,
     default: false,
+  },
+  // Written into every login token. Logging out adds 1, so every token
+  // issued before that (including stolen copies) stops matching.
+  tokenVersion: {
+    type: Number,
+    default: 0,
   },
 });
 

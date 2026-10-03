@@ -22,7 +22,7 @@ const sentenceSchema = new mongoose.Schema({
   },
   createdAt: {
     type: Date,
-    default: new Date(),
+    default: Date.now,
   },
   author: {
     type: mongoose.Schema.Types.ObjectId,
