@@ -23,7 +23,7 @@ const profileSchema = new mongoose.Schema({
   },
   dateJoined: {
     type: Date,
-    default: new Date(),
+    default: Date.now,
   },
   ownSentences: [
     {

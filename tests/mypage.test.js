@@ -54,7 +54,7 @@ describe("POST /MyPage", () => {
     expect(profile.ownSentences.map(String)).toEqual([res.body._id]);
   });
 
-  it("CURRENT BUG: trusts GID/author from the request body, so a user can post as someone else", async () => {
+  it("ignores GID/author in the body and credits the signed-in user", async () => {
     const ada = await createUser();
     const alan = await otherUser();
 
@@ -65,16 +65,31 @@ describe("POST /MyPage", () => {
       .send({
         title: "Day 1",
         tell: "It is cold outside.",
-        show: "Written by Ada, credited to Alan",
+        show: "Written by Ada, claiming to be Alan",
         author: alan._id,
         GID: alan.id,
       });
 
     expect(res.status).toBe(201);
     const saved = await Sentence.findById(res.body._id);
-    expect(saved.GID).toBe(alan.id);
+    expect(saved.GID).toBe(ada.id);
+    expect(String(saved.author)).toBe(String(ada._id));
+    const adaProfile = await Profile.findById(ada._id);
     const alanProfile = await Profile.findById(alan._id);
-    expect(alanProfile.ownSentences.map(String)).toContain(res.body._id);
+    expect(adaProfile.ownSentences.map(String)).toContain(res.body._id);
+    expect(alanProfile.ownSentences).toHaveLength(0);
+  });
+
+  it("works without GID/author in the body at all", async () => {
+    const ada = await createUser();
+
+    const res = await request(app)
+      .post("/MyPage")
+      .set("Authorization", bearer(ada))
+      .send({ title: "Day 1", tell: "It is cold outside.", show: "Brr." });
+
+    expect(res.status).toBe(201);
+    expect(res.body.GID).toBe(ada.id);
   });
 });
 
@@ -108,14 +123,23 @@ describe("PATCH /MyPage", () => {
   });
 });
 
-describe("Sentence model", () => {
-  it("CURRENT BUG: createdAt defaults to when the server started, not when the sentence was made", async () => {
+describe("default timestamps", () => {
+  const pause = () => new Promise((r) => setTimeout(r, 20));
+
+  it("stamps each sentence with the time it was created", async () => {
     const ada = await createUser();
     const first = await createSentence(ada, { title: "a", createdAt: undefined });
-    await new Promise((r) => setTimeout(r, 20));
+    await pause();
     const second = await createSentence(ada, { title: "b", createdAt: undefined });
 
-    // `default: new Date()` is evaluated once, when the model file loads.
-    expect(second.createdAt.getTime()).toBe(first.createdAt.getTime());
+    expect(second.createdAt.getTime()).toBeGreaterThan(first.createdAt.getTime());
+  });
+
+  it("stamps each profile with the time the user joined", async () => {
+    const ada = await createUser({ dateJoined: undefined });
+    await pause();
+    const alan = await otherUser();
+
+    expect(alan.dateJoined.getTime()).toBeGreaterThan(ada.dateJoined.getTime());
   });
 });

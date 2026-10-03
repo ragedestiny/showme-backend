@@ -42,15 +42,27 @@ export const getUserSentences = async (req, res) => {
 
 export const createNewUserSentence = async (req, res) => {
   try {
-    const { show, title, tell, author, GID } = req.body;
+    // Only the sentence text comes from the browser. Who wrote it comes from
+    // the verified token (req.userId), never from the request body, which
+    // anyone can edit.
+    const { show, title, tell } = req.body;
+
+    const user = await Profile.findOne({ id: req.userId });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     // When User creates a new show sentence
-    const newSentence = new Sentence({ title, tell, show, author, GID });
+    const newSentence = new Sentence({
+      title,
+      tell,
+      show,
+      author: user._id,
+      GID: user.id,
+    });
     await newSentence.save();
-    await Profile.findOneAndUpdate(
-      { id: GID },
-      { $push: { ownSentences: newSentence._id } }
-    );
+    user.ownSentences.push(newSentence._id);
+    await user.save();
     res.status(201).json(newSentence);
   } catch (error) {
     res.status(409).json({ message: error.message });

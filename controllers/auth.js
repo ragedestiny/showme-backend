@@ -7,12 +7,19 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 export const googleAuth = async (req, res) => {
   const { token } = req.body;
 
+  // Check the Google token on its own, so a bad token gets 401 ("show valid
+  // ID") instead of 500 ("our server broke").
+  let ticket;
   try {
-    const ticket = await client.verifyIdToken({
+    ticket = await client.verifyIdToken({
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
+  } catch (error) {
+    return res.status(401).json({ message: "Invalid Google token" });
+  }
 
+  try {
     const { sub, given_name, family_name, email } = ticket.getPayload();
 
     let user = await Profile.findOne({ id: sub }).populate("ownSentences");

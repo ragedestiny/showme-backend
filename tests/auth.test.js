@@ -66,10 +66,21 @@ describe("POST /auth (exchange a Google ID token for our JWT)", () => {
     expect(decoded.exp - decoded.iat).toBe(60 * 60);
   });
 
-  it("CURRENT BUG: a rejected Google token returns 500 instead of 401", async () => {
+  it("rejects a Google token that fails verification with 401", async () => {
     verifyIdToken.mockRejectedValue(new Error("Invalid token signature"));
 
     const res = await request(app).post("/auth").send({ token: "forged" });
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe("Invalid Google token");
+    expect(await Profile.countDocuments()).toBe(0);
+  });
+
+  it("still returns 500 when something on our side breaks", async () => {
+    // The Google token is fine, but saving the new profile fails.
+    vi.spyOn(Profile.prototype, "save").mockRejectedValueOnce(new Error("DB down"));
+
+    const res = await request(app).post("/auth").send({ token: "t" });
 
     expect(res.status).toBe(500);
     expect(res.body.message).toBe("Google authentication failed");
