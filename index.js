@@ -1,6 +1,6 @@
-// Must be the first import: ES module imports all run before the rest of the
-// file, so this loads .env before any other module reads process.env.
-import "dotenv/config";
+// Settings come from .env (and .env.local in the emulator). Firebase loads
+// them into process.env before this file runs, both when deployed and in the
+// emulator, so no library is needed here.
 import * as functions from "firebase-functions";
 import mongoose from "mongoose";
 import app from "./app.js";
