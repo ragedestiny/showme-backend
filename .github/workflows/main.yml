@@ -1,12 +1,17 @@
 name: Test and Deploy Functions
 
 # Tests run on every pull request and every push to main.
-# Deploying only happens on a push to main, and only if the tests pass.
+# Only code whose tests pass is deployed:
+#   - a pull request deploys to STAGING (practice database, test login on),
+#     so backend changes can be tried before merging
+#   - a push to main (merging a PR) deploys to PRODUCTION
 on:
   push:
     branches:
       - main
   pull_request:
+  # Adds a "Run workflow" button (Actions tab) to deploy a branch to staging
+  workflow_dispatch:
 
 jobs:
   test:
@@ -79,5 +84,69 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-      - name: Deploy Functions
-        run: npx --yes firebase-tools@15 deploy --only functions --non-interactive
+      - name: Deploy Functions to Production
+        run: npx --yes firebase-tools@15 deploy --only functions --project default --non-interactive
+
+  deploy_staging:
+    needs: test # only runs if every test passed
+    # Pull requests from this repository, or the "Run workflow" button.
+    # Not Dependabot's PRs (GitHub doesn't give them our secrets) or PRs from
+    # forks (which must never get our secrets).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.actor != 'dependabot[bot]')
+    # There is one staging backend: if two PRs push at once, deploy one after
+    # the other rather than at the same time
+    concurrency:
+      group: staging-deploy
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Set Up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # Staging has its own secrets: a database login that can only reach the
+      # practice database (ShowME-dev), its own JWT secret (so a staging login
+      # is worthless on production), and the test login secret, which
+      # production never gets.
+      - name: Write runtime settings (.env) from GitHub secrets
+        env:
+          DATABASE_ACCESS: ${{ secrets.STAGING_DATABASE_ACCESS }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          JWT_SECRET: ${{ secrets.STAGING_JWT_SECRET }}
+          TEST_LOGIN_SECRET: ${{ secrets.TEST_LOGIN_SECRET }}
+        run: |
+          for name in DATABASE_ACCESS GOOGLE_CLIENT_ID JWT_SECRET TEST_LOGIN_SECRET; do
+            if [ -z "${!name}" ]; then
+              echo "::error::GitHub secret for $name is empty or missing"
+              exit 1
+            fi
+          done
+          {
+            echo "DATABASE_ACCESS=\"$DATABASE_ACCESS\""
+            echo "DATABASE_NAME=\"ShowME-dev\""
+            echo "GOOGLE_CLIENT_ID=\"$GOOGLE_CLIENT_ID\""
+            echo "JWT_SECRET=\"$JWT_SECRET\""
+            echo "TEST_LOGIN_SECRET=\"$TEST_LOGIN_SECRET\""
+          } > .env
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.STAGING_FIREBASE_SERVICE_ACCOUNT }}
+
+      # "staging" is the project alias defined in .firebaserc
+      - name: Deploy Functions to Staging
+        run: npx --yes firebase-tools@15 deploy --only functions --project staging --non-interactive

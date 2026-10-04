@@ -11,6 +11,7 @@ import {
   logoutUser,
 } from "../controllers/routes.js";
 import { googleAuth } from "../controllers/auth.js";
+import { testLogin } from "../controllers/testLogin.js";
 import auth from "../middlewares/auth.js";
 import admin from "../middlewares/admin.js";
 
@@ -19,6 +20,8 @@ const router = express.Router();
 router.get("/", getTellSentences); // Fetch Tell sentences on the home route
 
 router.post("/auth", googleAuth); // Google authentication route
+// Login for automated browser tests; only works on staging (see testLogin.js)
+router.post("/auth/test", testLogin);
 
 // Route for create/update/fetch user sentences
 router.get("/MyPage", auth, getUserSentences);

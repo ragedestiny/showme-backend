@@ -9,6 +9,29 @@ import {
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// Log `user` in: sign our login token, put it in the session cookie and send
+// the profile back. Shared by the Google login and the staging test login, so
+// both produce exactly the same kind of session.
+export const startSession = (res, user) => {
+  // v = the user's current token version; logging out changes it.
+  const customToken = jwt.sign(
+    { id: user.id, v: user.tokenVersion },
+    process.env.JWT_SECRET,
+    { expiresIn: SESSION_SECONDS }
+  );
+
+  // The browser stores this cookie and sends it back on every request.
+  // Express wants maxAge in milliseconds.
+  res.cookie(SESSION_COOKIE, customToken, {
+    ...sessionCookieOptions,
+    maxAge: SESSION_SECONDS * 1000,
+  });
+
+  // The token travels only in the httpOnly cookie, never in the body, where
+  // scripts in the page could read it.
+  res.status(200).json({ user });
+};
+
 export const googleAuth = async (req, res) => {
   // Express 5 leaves req.body undefined when a request has no body.
   const { token } = req.body ?? {};
@@ -49,23 +72,7 @@ export const googleAuth = async (req, res) => {
       await user.save();
     }
 
-    // v = the user's current token version; logging out changes it.
-    const customToken = jwt.sign(
-      { id: sub, v: user.tokenVersion },
-      process.env.JWT_SECRET,
-      { expiresIn: SESSION_SECONDS }
-    );
-
-    // The browser stores this cookie and sends it back on every request.
-    // Express wants maxAge in milliseconds.
-    res.cookie(SESSION_COOKIE, customToken, {
-      ...sessionCookieOptions,
-      maxAge: SESSION_SECONDS * 1000,
-    });
-
-    // The token travels only in the httpOnly cookie, never in the body, where
-    // scripts in the page could read it.
-    res.status(200).json({ user });
+    startSession(res, user);
   } catch (error) {
     res
       .status(500)
