@@ -1,0 +1,40 @@
+# Dependabot opens pull requests when the libraries this project uses release
+# new versions. Every PR runs the test job in .github/workflows/main.yml; a
+# person reviews and merges it (merging to main deploys).
+version: 2
+updates:
+  # npm libraries (package.json / package-lock.json)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Los_Angeles"
+    # Wait a week after a release before suggesting it, so a bad or hacked
+    # release is usually caught and withdrawn before it reaches us
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      # Minor and patch updates (meant to be safe) arrive together in one PR;
+      # each major update (may need code changes) gets its own PR
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # The GitHub Actions used by the deploy workflow (checkout, setup-node, auth)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Los_Angeles"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci"
