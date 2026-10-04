@@ -98,12 +98,24 @@ describe("request size limit", () => {
   it("refuses request bodies over 1mb (413 Payload Too Large)", async () => {
     const ada = await createUser();
 
-    const res = await request(app)
-      .post("/MyPage")
-      .set("Cookie", sessionCookie(ada))
-      .send({ title: "Day 1", tell: "x", show: "x".repeat(1024 * 1024 + 1) });
+    // The server answers 413 from the size label (Content-Length) without
+    // reading the body, then closes the connection. If the client is still
+    // uploading at that moment, it can see the connection cut (ECONNRESET)
+    // before it reads the 413. Both mean "refused"; what matters is that
+    // nothing was saved.
+    let outcome;
+    try {
+      const res = await request(app)
+        .post("/MyPage")
+        .set("Cookie", sessionCookie(ada))
+        .send({ title: "Day 1", tell: "x", show: "x".repeat(1024 * 1024 + 1) });
+      outcome = res.status;
+    } catch (error) {
+      outcome = error.code;
+    }
 
-    expect(res.status).toBe(413);
+    expect([413, "ECONNRESET", "EPIPE"]).toContain(outcome);
+    expect(await Sentence.countDocuments()).toBe(0);
   });
 
   it("refuses them even when Firebase has already read the body (as in production)", async () => {
