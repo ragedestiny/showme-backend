@@ -1,7 +1,6 @@
 // Settings come from .env (and .env.local in the emulator). Firebase loads
 // them into process.env before this file runs, both when deployed and in the
 // emulator, so no library is needed here.
-import * as functionsV1 from "firebase-functions/v1";
 import { onRequest } from "firebase-functions/v2/https";
 import mongoose from "mongoose";
 import app from "./app.js";
@@ -31,7 +30,3 @@ export const apiv2 = onRequest(
   },
   app
 );
-
-// TEMPORARY: the 1st generation function the live site uses today. Delete it
-// once Netlify's proxy points at apiv2 and the live site is checked.
-export const api = functionsV1.https.onRequest(app);
