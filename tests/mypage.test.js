@@ -93,6 +93,19 @@ describe("POST /MyPage", () => {
   });
 });
 
+describe("request size limit", () => {
+  it("refuses request bodies over 1mb (413 Payload Too Large)", async () => {
+    const ada = await createUser();
+
+    const res = await request(app)
+      .post("/MyPage")
+      .set("Cookie", sessionCookie(ada))
+      .send({ title: "Day 1", tell: "x", show: "x".repeat(1024 * 1024 + 1) });
+
+    expect(res.status).toBe(413);
+  });
+});
+
 describe("PATCH /MyPage", () => {
   it("replaces the user's sentence with that title and sends it back for review", async () => {
     const ada = await createUser();

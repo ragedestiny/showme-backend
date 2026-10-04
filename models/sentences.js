@@ -1,16 +1,5 @@
 import mongoose from "mongoose";
 
-// Tell sentence schema
-const tellSchema = new mongoose.Schema({
-  key: { type: Number, required: true },
-  title: { type: String, required: true },
-  tell: { type: String, required: true },
-  image: {
-    type: String,
-    default: "",
-  },
-});
-
 // User sentence schema
 const sentenceSchema = new mongoose.Schema({
   title: { type: String, required: true },
@@ -45,7 +34,6 @@ const sentenceSchema = new mongoose.Schema({
 });
 
 // Creating mongoose model
-const Tell = mongoose.model("Tell", tellSchema);
 const Sentence = mongoose.model("Sentence", sentenceSchema);
 
-export { Sentence, Tell };
+export { Sentence };

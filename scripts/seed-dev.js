@@ -7,15 +7,12 @@
 // Safety lock: it only runs when DATABASE_NAME (from .env.local) names a
 // database other than the production one, and it only ever deletes the sample
 // data it created itself (emails ending in @seed.example).
-import dotenv from "dotenv";
+// Settings come from Node's built-in --env-file flags in package.json:
+// .env first, then .env.local, whose DATABASE_NAME wins.
 import mongoose from "mongoose";
 import Profile from "../models/profile.js";
 import { Sentence } from "../models/sentences.js";
 import tellList from "../public/tellList.js";
-
-// .env.local first, so its DATABASE_NAME wins; then .env for the connection string.
-dotenv.config({ path: ".env.local" });
-dotenv.config();
 
 const PRODUCTION_DB = "ShowME";
 const SEED_DOMAIN = "@seed.example";

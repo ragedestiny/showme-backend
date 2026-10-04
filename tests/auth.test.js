@@ -108,6 +108,14 @@ describe("POST /auth (exchange a Google ID token for our JWT)", () => {
     expect(res.headers["set-cookie"]).toBeUndefined();
   });
 
+  it("rejects a login request with no body with 401, without asking Google", async () => {
+    const res = await request(app).post("/auth");
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe("Invalid Google token");
+    expect(verifyIdToken).not.toHaveBeenCalled();
+  });
+
   it("rejects a Google token that fails verification with 401", async () => {
     verifyIdToken.mockRejectedValue(new Error("Invalid token signature"));
 

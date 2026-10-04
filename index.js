@@ -1,20 +1,37 @@
-// Must be the first import: ES module imports all run before the rest of the
-// file, so this loads .env before any other module reads process.env.
-import "dotenv/config";
-import * as functions from "firebase-functions";
+// Settings come from .env (and .env.local in the emulator). Firebase loads
+// them into process.env before this file runs, both when deployed and in the
+// emulator, so no library is needed here.
+import * as functionsV1 from "firebase-functions/v1";
+import { onRequest } from "firebase-functions/v2/https";
 import mongoose from "mongoose";
 import app from "./app.js";
 
 mongoose.set("strictQuery", false);
 // Connect to mongodb via mongoose. DATABASE_NAME overrides the database in the
 // connection string; set it in .env.local so only the emulator uses the dev DB.
-mongoose
-  .connect(process.env.DATABASE_ACCESS, {
-    dbName: process.env.DATABASE_NAME,
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .catch((error) => console.log(error.message));
+if (process.env.DATABASE_ACCESS) {
+  mongoose
+    .connect(process.env.DATABASE_ACCESS, {
+      dbName: process.env.DATABASE_NAME,
+    })
+    .catch((error) => console.log(error.message));
+} else {
+  console.error("DATABASE_ACCESS is not set; the database is unavailable.");
+}
 
-// Export the Express app as a Cloud Function
-export const api = functions.https.onRequest(app);
+// 2nd generation: one instance serves many requests at once.
+export const apiv2 = onRequest(
+  {
+    region: "us-central1",
+    memory: "512MiB",
+    // Up to 80 requests share one instance before another one starts.
+    concurrency: 80,
+    // A spending cap: never run more than 10 instances, whatever the traffic.
+    maxInstances: 10,
+  },
+  app
+);
+
+// TEMPORARY: the 1st generation function the live site uses today. Delete it
+// once Netlify's proxy points at apiv2 and the live site is checked.
+export const api = functionsV1.https.onRequest(app);
