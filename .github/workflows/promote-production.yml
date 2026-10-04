@@ -1,14 +1,16 @@
 name: Promote to production
 
 # Deploys the version that is on staging (and that QA Wolf tested) to the
-# production backend. Run it from the Actions tab with "Run workflow".
+# production backend, then moves `main` to it, so `main` always shows what
+# production runs. Run it from the Actions tab with "Run workflow".
+# Nobody pushes to `main` by hand; only this workflow.
 on:
   workflow_dispatch:
     inputs:
       commit:
         description: >-
           Leave empty to promote what is on staging now. To roll back, enter an
-          earlier commit SHA from main.
+          earlier commit SHA from the staging branch.
         required: false
         default: ""
 
@@ -27,12 +29,14 @@ jobs:
     # The "production" environment (repo Settings > Environments) asks a
     # required reviewer to approve before this job starts
     environment: production
+    permissions:
+      contents: write # to move the main branch
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # full history, to check the commit came from main
+          fetch-depth: 0 # full history, to check the commit came from staging
 
       - name: Choose the commit to promote
         id: pick
@@ -44,9 +48,9 @@ jobs:
           else
             sha=$(curl -fsS "$STAGING_API/version" | jq -r .version)
           fi
-          # Only code that has been merged to main (and so went through staging)
-          if ! git merge-base --is-ancestor "$sha" origin/main; then
-            echo "::error::$sha is not a commit on main, refusing to promote it"
+          # Only code that has been merged to staging (and so was tested there)
+          if ! git merge-base --is-ancestor "$sha" origin/staging; then
+            echo "::error::$sha is not a commit on staging, refusing to promote it"
             exit 1
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
@@ -115,3 +119,9 @@ jobs:
           done
           echo "::error::Production did not report $SHA after deploying"
           exit 1
+
+      # main always matches what production runs (--force allows rollbacks)
+      - name: Move main (production) to that commit
+        env:
+          SHA: ${{ steps.pick.outputs.sha }}
+        run: git push --force origin "$SHA:refs/heads/main"

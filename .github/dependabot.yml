@@ -6,6 +6,8 @@ updates:
   # npm libraries (package.json / package-lock.json)
   - package-ecosystem: "npm"
     directory: "/"
+    # Updates go through staging like every other change
+    target-branch: "staging"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -29,6 +31,8 @@ updates:
   # The GitHub Actions used by the deploy workflow (checkout, setup-node, auth)
   - package-ecosystem: "github-actions"
     directory: "/"
+    # Updates go through staging like every other change
+    target-branch: "staging"
     schedule:
       interval: "weekly"
       day: "monday"

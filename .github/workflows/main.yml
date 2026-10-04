@@ -1,17 +1,19 @@
-name: Test, and deploy main to staging
+name: Test, and deploy staging
 
-# Tests run on every pull request and every push to main.
-# A push to main (merging a PR) whose tests pass deploys to STAGING (practice
-# database, test login on), and QA Wolf then tests it there.
-# PRODUCTION only changes when someone runs "Promote to production"
-# (promote-production.yml), which deploys the version staging has.
+# Tests run on every pull request and every push to staging or main.
+# Pull requests merge into the `staging` branch; a push there whose tests
+# pass deploys to STAGING (practice database, test login on), and QA Wolf
+# then tests it. PRODUCTION only changes when someone runs "Promote to
+# production" (promote-production.yml), which deploys the version staging
+# has and moves `main` (production) to it.
 on:
   push:
     branches:
+      - staging
       - main
   pull_request:
   # Adds a "Run workflow" button (Actions tab) to deploy a branch to staging
-  # by hand. (Promotion refuses anything that is not on main.)
+  # by hand. (Promotion refuses anything that is not on staging.)
   workflow_dispatch:
 
 jobs:
@@ -40,7 +42,7 @@ jobs:
   deploy_staging:
     needs: test # only runs if every test passed
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/staging') ||
       github.event_name == 'workflow_dispatch'
     # One staging backend: deploy one change after the other, never at once
     concurrency:
@@ -115,7 +117,7 @@ jobs:
           echo "::error::Staging did not report $GITHUB_SHA after deploying"
           exit 1
 
-      # The staging site (main--show-me-not-tell.netlify.app) uses the staging
+      # The staging site (staging--show-me-not-tell.netlify.app) uses the staging
       # backend, so tell QA Wolf, whose staging trigger then runs the
       # regression tests against it.
       - name: Tell QA Wolf the staging backend changed
@@ -126,4 +128,4 @@ jobs:
           qawolf-api-key: ${{ secrets.QAWOLF_API_KEY }}
           workspace-id: xoniuprcn2am5nh63rx8fn6cotea # not a secret
           environment: staging # the QA Wolf environment's alias
-          deployment-url: https://main--show-me-not-tell.netlify.app
+          deployment-url: https://staging--show-me-not-tell.netlify.app
