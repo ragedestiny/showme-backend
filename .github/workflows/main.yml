@@ -1,16 +1,17 @@
-name: Test and Deploy Functions
+name: Test, and deploy main to staging
 
 # Tests run on every pull request and every push to main.
-# Only code whose tests pass is deployed:
-#   - a pull request deploys to STAGING (practice database, test login on),
-#     so backend changes can be tried before merging
-#   - a push to main (merging a PR) deploys to PRODUCTION
+# A push to main (merging a PR) whose tests pass deploys to STAGING (practice
+# database, test login on), and QA Wolf then tests it there.
+# PRODUCTION only changes when someone runs "Promote to production"
+# (promote-production.yml), which deploys the version staging has.
 on:
   push:
     branches:
       - main
   pull_request:
   # Adds a "Run workflow" button (Actions tab) to deploy a branch to staging
+  # by hand. (Promotion refuses anything that is not on main.)
   workflow_dispatch:
 
 jobs:
@@ -36,73 +37,18 @@ jobs:
       - name: Run Tests
         run: npm test
 
-  deploy_functions:
-    needs: test # only runs if every test passed
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v7
-
-      - name: Set Up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          cache: npm
-
-      - name: Install Dependencies
-        run: npm ci
-
-      # Firebase uploads the .env file as the function's runtime settings;
-      # settings in this job's environment alone never reach the server.
-      # Stop before deploying if any secret is missing, rather than deploying
-      # a backend that can't reach its database.
-      - name: Write runtime settings (.env) from GitHub secrets
-        env:
-          DATABASE_ACCESS: ${{ secrets.DATABASE_ACCESS }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: |
-          for name in DATABASE_ACCESS GOOGLE_CLIENT_ID JWT_SECRET; do
-            if [ -z "${!name}" ]; then
-              echo "::error::GitHub secret $name is empty or missing"
-              exit 1
-            fi
-          done
-          {
-            echo "DATABASE_ACCESS=\"$DATABASE_ACCESS\""
-            echo "GOOGLE_CLIENT_ID=\"$GOOGLE_CLIENT_ID\""
-            echo "JWT_SECRET=\"$JWT_SECRET\""
-          } > .env
-
-      # Log in to Google Cloud as the deploy service account (key stored in
-      # the FIREBASE_SERVICE_ACCOUNT secret). This replaces the retired
-      # `--token` login.
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v3
-        with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-
-      - name: Deploy Functions to Production
-        run: npx --yes firebase-tools@15 deploy --only functions --project default --non-interactive
-
   deploy_staging:
     needs: test # only runs if every test passed
-    # Pull requests from this repository, or the "Run workflow" button.
-    # Not Dependabot's PRs (GitHub doesn't give them our secrets) or PRs from
-    # forks (which must never get our secrets).
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.head.repo.full_name == github.repository &&
-       github.actor != 'dependabot[bot]')
-    # There is one staging backend: if two PRs push at once, deploy one after
-    # the other rather than at the same time
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
+    # One staging backend: deploy one change after the other, never at once
     concurrency:
       group: staging-deploy
       cancel-in-progress: false
     runs-on: ubuntu-24.04
+    env:
+      STAGING_API: https://us-central1-showme-staging.cloudfunctions.net/apiv2
 
     steps:
       - name: Checkout Repository
@@ -117,10 +63,11 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      # Firebase uploads the .env file as the function's runtime settings.
       # Staging has its own secrets: a database login that can only reach the
       # practice database (ShowME-dev), its own JWT secret (so a staging login
       # is worthless on production), and the test login secret, which
-      # production never gets.
+      # production never gets. APP_VERSION records which commit this is.
       - name: Write runtime settings (.env) from GitHub secrets
         env:
           DATABASE_ACCESS: ${{ secrets.STAGING_DATABASE_ACCESS }}
@@ -140,6 +87,7 @@ jobs:
             echo "GOOGLE_CLIENT_ID=\"$GOOGLE_CLIENT_ID\""
             echo "JWT_SECRET=\"$JWT_SECRET\""
             echo "TEST_LOGIN_SECRET=\"$TEST_LOGIN_SECRET\""
+            echo "APP_VERSION=\"$GITHUB_SHA\""
           } > .env
 
       - name: Authenticate to Google Cloud
@@ -153,3 +101,29 @@ jobs:
       # staging function that no longer exists in the code without asking.
       - name: Deploy Functions to Staging
         run: npx --yes firebase-tools@15 deploy --only functions --project staging --non-interactive --force
+
+      - name: Check staging now runs this commit
+        run: |
+          for attempt in $(seq 1 12); do
+            live=$(curl -fsS "$STAGING_API/version" | jq -r .version || true)
+            if [ "$live" = "$GITHUB_SHA" ]; then
+              echo "Staging runs $GITHUB_SHA"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Staging did not report $GITHUB_SHA after deploying"
+          exit 1
+
+      # The staging site (main--show-me-not-tell.netlify.app) uses the staging
+      # backend, so tell QA Wolf, whose staging trigger then runs the
+      # regression tests against it.
+      - name: Tell QA Wolf the staging backend changed
+        uses: qawolf/notify-qawolf-on-deploy-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          qawolf-api-key: ${{ secrets.QAWOLF_API_KEY }}
+          workspace-id: xoniuprcn2am5nh63rx8fn6cotea # not a secret
+          environment: staging # the QA Wolf environment's alias
+          deployment-url: https://main--show-me-not-tell.netlify.app

@@ -1,0 +1,117 @@
+name: Promote to production
+
+# Deploys the version that is on staging (and that QA Wolf tested) to the
+# production backend. Run it from the Actions tab with "Run workflow".
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: >-
+          Leave empty to promote what is on staging now. To roll back, enter an
+          earlier commit SHA from main.
+        required: false
+        default: ""
+
+# Never two production deploys at once
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+env:
+  STAGING_API: https://us-central1-showme-staging.cloudfunctions.net/apiv2
+  PRODUCTION_API: https://us-central1-showme-backend-789.cloudfunctions.net/apiv2
+
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    # The "production" environment (repo Settings > Environments) asks a
+    # required reviewer to approve before this job starts
+    environment: production
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history, to check the commit came from main
+
+      - name: Choose the commit to promote
+        id: pick
+        env:
+          REQUESTED: ${{ inputs.commit }}
+        run: |
+          if [ -n "$REQUESTED" ]; then
+            sha=$(git rev-parse --verify "$REQUESTED^{commit}")
+          else
+            sha=$(curl -fsS "$STAGING_API/version" | jq -r .version)
+          fi
+          # Only code that has been merged to main (and so went through staging)
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::$sha is not a commit on main, refusing to promote it"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Promoting $sha: $(git log -1 --format=%s "$sha")"
+
+      # From here on, the files are exactly those of the chosen commit
+      - name: Switch to that commit
+        env:
+          SHA: ${{ steps.pick.outputs.sha }}
+        run: git checkout --detach "$SHA"
+
+      - name: Set Up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # One more check before real users get it
+      - name: Run Tests
+        run: npm test
+
+      # Production settings: the real database, the production JWT secret,
+      # and no test login secret, so the test login door stays shut
+      - name: Write runtime settings (.env) from GitHub secrets
+        env:
+          DATABASE_ACCESS: ${{ secrets.DATABASE_ACCESS }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SHA: ${{ steps.pick.outputs.sha }}
+        run: |
+          for name in DATABASE_ACCESS GOOGLE_CLIENT_ID JWT_SECRET; do
+            if [ -z "${!name}" ]; then
+              echo "::error::GitHub secret $name is empty or missing"
+              exit 1
+            fi
+          done
+          {
+            echo "DATABASE_ACCESS=\"$DATABASE_ACCESS\""
+            echo "GOOGLE_CLIENT_ID=\"$GOOGLE_CLIENT_ID\""
+            echo "JWT_SECRET=\"$JWT_SECRET\""
+            echo "APP_VERSION=\"$SHA\""
+          } > .env
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Deploy Functions to Production
+        run: npx --yes firebase-tools@15 deploy --only functions --project default --non-interactive
+
+      - name: Check production now runs that commit
+        env:
+          SHA: ${{ steps.pick.outputs.sha }}
+        run: |
+          for attempt in $(seq 1 12); do
+            live=$(curl -fsS "$PRODUCTION_API/version" | jq -r .version || true)
+            if [ "$live" = "$SHA" ]; then
+              echo "Production runs $SHA"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Production did not report $SHA after deploying"
+          exit 1

@@ -19,6 +19,13 @@ const router = express.Router();
 
 router.get("/", getTellSentences); // Fetch Tell sentences on the home route
 
+// Which git commit this server was deployed from (APP_VERSION is written by
+// the deploy workflows). Used by "Promote to production" to know what is on
+// staging and to confirm what reached production.
+router.get("/version", (req, res) => {
+  res.json({ version: process.env.APP_VERSION || "local" });
+});
+
 router.post("/auth", googleAuth); // Google authentication route
 // Login for automated browser tests; only works on staging (see testLogin.js)
 router.post("/auth/test", testLogin);
