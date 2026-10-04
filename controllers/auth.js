@@ -10,7 +10,11 @@ import {
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export const googleAuth = async (req, res) => {
-  const { token } = req.body;
+  // Express 5 leaves req.body undefined when a request has no body.
+  const { token } = req.body ?? {};
+  if (!token) {
+    return res.status(401).json({ message: "Invalid Google token" });
+  }
 
   // Check the Google token on its own, so a bad token gets 401 ("show valid
   // ID") instead of 500 ("our server broke").

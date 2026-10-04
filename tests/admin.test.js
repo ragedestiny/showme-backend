@@ -17,6 +17,23 @@ describe("/Admin access control", () => {
   });
 });
 
+describe("requests with no body", () => {
+  // Express 5 leaves req.body undefined when there's no body. A signed-in
+  // request without one must get a normal error, never a 500 crash.
+  it.each([
+    ["post", "/MyPage"],
+    ["patch", "/MyPage"],
+    ["patch", "/Admin"],
+  ])("%s %s without a body doesn't crash", async (method, path) => {
+    const admin = await createAdmin();
+
+    const res = await request(app)[method](path).set("Cookie", sessionCookie(admin));
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBeLessThan(500);
+  });
+});
+
 describe("GET /Admin", () => {
   it("lists sentences awaiting review, newest first, with authors", async () => {
     const admin = await createAdmin();

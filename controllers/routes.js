@@ -47,7 +47,7 @@ export const createNewUserSentence = async (req, res) => {
     // Only the sentence text comes from the browser. Who wrote it comes from
     // the verified token (req.userId), never from the request body, which
     // anyone can edit.
-    const { show, title, tell } = req.body;
+    const { show, title, tell } = req.body ?? {};
 
     const user = await Profile.findOne({ id: req.userId });
     if (!user) {
@@ -73,7 +73,7 @@ export const createNewUserSentence = async (req, res) => {
 
 export const editUserSentence = async (req, res) => {
   try {
-    const { title, show } = req.body;
+    const { title, show } = req.body ?? {};
     // find sentence to replace
     const updateSentence = await Sentence.findOne({
       GID: req.userId,
@@ -159,7 +159,7 @@ export const updatePendingApprovalSentences = async (req, res) => {
     if (!user.isAdmin) {
       return res.status(403).json({ message: "You are not the admin!" });
     }
-    const { status, sentence } = req.body;
+    const { status, sentence } = req.body ?? {};
 
     const checkedSentence = await Sentence.findById(sentence._id);
 
