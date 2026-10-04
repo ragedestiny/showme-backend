@@ -59,9 +59,9 @@ export const googleAuth = async (req, res) => {
       maxAge: SESSION_SECONDS * 1000,
     });
 
-    // TEMPORARY: the token is also in the body so the frontend that's live
-    // today (which reads it from here) keeps working until it's updated.
-    res.status(200).json({ token: customToken, user });
+    // The token travels only in the httpOnly cookie, never in the body, where
+    // scripts in the page could read it.
+    res.status(200).json({ user });
   } catch (error) {
     res
       .status(500)

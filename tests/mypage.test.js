@@ -3,7 +3,7 @@ import request from "supertest";
 import app from "../app.js";
 import Profile from "../models/profile.js";
 import { Sentence } from "../models/sentences.js";
-import { bearer, createSentence, createUser } from "./helpers.js";
+import { createSentence, createUser, sessionCookie } from "./helpers.js";
 
 const otherUser = () =>
   createUser({ id: "google-user-2", firstName: "Alan", email: "alan@example.com" });
@@ -26,7 +26,7 @@ describe("GET /MyPage", () => {
     await createSentence(ada, { show: "Ada's sentence" });
     await createSentence(alan, { show: "Alan's sentence" });
 
-    const res = await request(app).get("/MyPage").set("Authorization", bearer(ada));
+    const res = await request(app).get("/MyPage").set("Cookie", sessionCookie(ada));
 
     expect(res.status).toBe(200);
     expect(res.body.map((s) => s.show)).toEqual(["Ada's sentence"]);
@@ -39,7 +39,7 @@ describe("POST /MyPage", () => {
 
     const res = await request(app)
       .post("/MyPage")
-      .set("Authorization", bearer(ada))
+      .set("Cookie", sessionCookie(ada))
       .send({
         title: "Day 1",
         tell: "It is cold outside.",
@@ -61,7 +61,7 @@ describe("POST /MyPage", () => {
     // Ada is signed in, but claims to be Alan in the body.
     const res = await request(app)
       .post("/MyPage")
-      .set("Authorization", bearer(ada))
+      .set("Cookie", sessionCookie(ada))
       .send({
         title: "Day 1",
         tell: "It is cold outside.",
@@ -85,7 +85,7 @@ describe("POST /MyPage", () => {
 
     const res = await request(app)
       .post("/MyPage")
-      .set("Authorization", bearer(ada))
+      .set("Cookie", sessionCookie(ada))
       .send({ title: "Day 1", tell: "It is cold outside.", show: "Brr." });
 
     expect(res.status).toBe(201);
@@ -100,7 +100,7 @@ describe("PATCH /MyPage", () => {
 
     const res = await request(app)
       .patch("/MyPage")
-      .set("Authorization", bearer(ada))
+      .set("Cookie", sessionCookie(ada))
       .send({ title: "Day 1", show: "A better sentence." });
 
     expect(res.status).toBe(201);
@@ -116,7 +116,7 @@ describe("PATCH /MyPage", () => {
 
     const res = await request(app)
       .patch("/MyPage")
-      .set("Authorization", bearer(ada))
+      .set("Cookie", sessionCookie(ada))
       .send({ title: "Day 1", show: "Hijacked" });
 
     expect(res.status).toBe(404);
