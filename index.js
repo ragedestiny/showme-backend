@@ -11,8 +11,6 @@ mongoose.set("strictQuery", false);
 mongoose
   .connect(process.env.DATABASE_ACCESS, {
     dbName: process.env.DATABASE_NAME,
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
   })
   .catch((error) => console.log(error.message));
 
