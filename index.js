@@ -4,16 +4,21 @@
 import { onRequest } from "firebase-functions/v2/https";
 import mongoose from "mongoose";
 import app from "./app.js";
+import { connectWithRetry } from "./config/db.js";
 
 mongoose.set("strictQuery", false);
 // Connect to mongodb via mongoose. DATABASE_NAME overrides the database in the
 // connection string; set it in .env.local so only the emulator uses the dev DB.
+// Requests that arrive before the connection is ready wait for it (mongoose
+// holds them for up to 10 seconds), so the function can start serving at once.
 if (process.env.DATABASE_ACCESS) {
-  mongoose
-    .connect(process.env.DATABASE_ACCESS, {
+  connectWithRetry(() =>
+    mongoose.connect(process.env.DATABASE_ACCESS, {
       dbName: process.env.DATABASE_NAME,
+      // Give up on one attempt after 10s (default 30s), so a retry comes sooner
+      serverSelectionTimeoutMS: 10000,
     })
-    .catch((error) => console.log(error.message));
+  );
 } else {
   console.error("DATABASE_ACCESS is not set; the database is unavailable.");
 }
