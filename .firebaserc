@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "showme-backend-789"
+    "default": "showme-backend-789",
+    "staging": "showme-staging"
   }
 }

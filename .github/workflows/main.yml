@@ -147,6 +147,9 @@ jobs:
         with:
           credentials_json: ${{ secrets.STAGING_FIREBASE_SERVICE_ACCOUNT }}
 
-      # "staging" is the project alias defined in .firebaserc
+      # "staging" is the project alias defined in .firebaserc.
+      # --force lets the deploy set up the cleanup policy for old function
+      # images by itself (production's was set by hand), and lets it remove a
+      # staging function that no longer exists in the code without asking.
       - name: Deploy Functions to Staging
-        run: npx --yes firebase-tools@15 deploy --only functions --project staging --non-interactive
+        run: npx --yes firebase-tools@15 deploy --only functions --project staging --non-interactive --force
