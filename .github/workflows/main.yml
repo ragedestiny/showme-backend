@@ -80,4 +80,4 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy Functions
-        run: npx --yes firebase-tools deploy --only functions --non-interactive
+        run: npx --yes firebase-tools@15 deploy --only functions --non-interactive

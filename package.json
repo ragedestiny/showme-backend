@@ -8,7 +8,7 @@
     "start": "npm run emulators",
     "test": "vitest run",
     "test:watch": "vitest",
-    "emulators": "firebase emulators:start --only functions",
+    "emulators": "npx --yes firebase-tools@15 emulators:start --only functions",
     "seed:dev": "node --env-file=.env --env-file-if-exists=.env.local scripts/seed-dev.js"
   },
   "keywords": [],
