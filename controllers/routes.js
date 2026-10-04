@@ -1,35 +1,14 @@
-import { Sentence, Tell } from "../models/sentences.js";
+import { Sentence } from "../models/sentences.js";
 import Profile from "../models/profile.js";
 import tellList from "../public/tellList.js";
 import { readSession } from "../middlewares/auth.js";
 import { SESSION_COOKIE, sessionCookieOptions } from "../config/session.js";
 
-// Route for getting the Tell Sentences
-export const getTellSentences = async (req, res) => {
-  try {
-    // await Profile.updateMany({}, [
-    //   { $addFields: { "sentences.toRedo": false } },
-    // ]);
-    // await Profile.updateMany({}, { $set: { isAdmin: false } });
-    const NewList = await Promise.all(
-      tellList.map(async (tell) => {
-        const TellList = new Tell({
-          key: tell.key,
-          title: tell.title,
-          tell: tell.tell,
-          image: tell.image,
-        });
-        const existingTell = await Tell.find({ title: tell.title });
-        if (!existingTell) {
-          await TellList.save();
-        }
-        return TellList;
-      })
-    );
-    res.status(200).json(NewList);
-  } catch (error) {
-    res.status(404).json({ message: error.message });
-  }
+// Route for getting the Tell Sentences. The list lives in the code
+// (public/tellList.js), so it's sent straight from memory with no database
+// round trips.
+export const getTellSentences = (req, res) => {
+  res.status(200).json(tellList);
 };
 
 export const getUserSentences = async (req, res) => {
@@ -154,14 +133,10 @@ export const getPendingApprovalSentences = async (req, res) => {
 // Route for approving or rejecting sentences
 export const updatePendingApprovalSentences = async (req, res) => {
   try {
-    const user = await Profile.findOne({ id: req.userId });
-
-    if (!user.isAdmin) {
-      return res.status(403).json({ message: "You are not the admin!" });
-    }
+    // The admin middleware on this route has already checked isAdmin.
     const { status, sentence } = req.body ?? {};
 
-    const checkedSentence = await Sentence.findById(sentence._id);
+    const checkedSentence = await Sentence.findById(sentence?._id);
 
     if (!checkedSentence) {
       return res.status(404).json({ message: "Sentence not found" });
@@ -206,7 +181,7 @@ export const fetchApprovedSentences = async (req, res) => {
       (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
     );
 
-    res.status(201).json(approvedSentences);
+    res.status(200).json(approvedSentences);
   } catch (error) {
     res.status(409).json({ message: error.message });
   }
