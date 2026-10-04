@@ -9,11 +9,24 @@ const app = express();
 
 app.use(express.static("public"));
 
-// Turn the request's text body into req.body. Express has this built in.
 // A sentence is a few hundred bytes; 1mb leaves plenty of room while stopping
 // anyone from tying up the server with huge requests.
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ limit: "1mb", extended: true }));
+const MAX_BODY_BYTES = 1024 * 1024;
+
+// On Cloud Functions, Firebase reads the body before this app runs, so the
+// limits on express.json()/urlencoded() below never get a chance to apply.
+// Every normal request declares its size in Content-Length, so check that first.
+app.use((req, res, next) => {
+  if (Number(req.headers["content-length"]) > MAX_BODY_BYTES) {
+    return res.status(413).json({ message: "Request too large" });
+  }
+  next();
+});
+
+// Turn the request's text body into req.body. Express has this built in.
+// (Outside Cloud Functions, e.g. in tests, these limits apply as well.)
+app.use(express.json({ limit: MAX_BODY_BYTES }));
+app.use(express.urlencoded({ limit: MAX_BODY_BYTES, extended: true }));
 app.use(cors());
 // Turns the browser's "Cookie: a=1; b=2" header into req.cookies = { a, b }
 app.use(cookieParser());
