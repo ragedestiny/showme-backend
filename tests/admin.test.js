@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import request from "supertest";
 import app from "../app.js";
 import { Sentence } from "../models/sentences.js";
-import { bearer, createAdmin, createSentence, createUser } from "./helpers.js";
+import { createAdmin, createSentence, createUser, sessionCookie } from "./helpers.js";
 
 describe("/Admin access control", () => {
   it.each(["get", "patch"])("%s without a token returns 401", async (method) => {
@@ -12,7 +12,7 @@ describe("/Admin access control", () => {
 
   it.each(["get", "patch"])("%s as a non-admin returns 403", async (method) => {
     const user = await createUser();
-    const res = await request(app)[method]("/Admin").set("Authorization", bearer(user));
+    const res = await request(app)[method]("/Admin").set("Cookie", sessionCookie(user));
     expect(res.status).toBe(403);
   });
 });
@@ -26,7 +26,7 @@ describe("GET /Admin", () => {
     await createSentence(user, { show: "approved", approved: true });
     await createSentence(user, { show: "sent back", toRedo: true });
 
-    const res = await request(app).get("/Admin").set("Authorization", bearer(admin));
+    const res = await request(app).get("/Admin").set("Cookie", sessionCookie(admin));
 
     expect(res.status).toBe(200);
     expect(res.body.map((s) => s.show)).toEqual(["newer", "older"]);
@@ -43,7 +43,7 @@ describe("PATCH /Admin", () => {
 
     const res = await request(app)
       .patch("/Admin")
-      .set("Authorization", bearer(admin))
+      .set("Cookie", sessionCookie(admin))
       .send({ status: "approve", sentence: { _id: target._id } });
 
     expect(res.status).toBe(201);
@@ -60,7 +60,7 @@ describe("PATCH /Admin", () => {
 
     await request(app)
       .patch("/Admin")
-      .set("Authorization", bearer(admin))
+      .set("Cookie", sessionCookie(admin))
       .send({ status: "redo", sentence: { _id: target._id } });
 
     const saved = await Sentence.findById(target._id);
@@ -73,7 +73,7 @@ describe("PATCH /Admin", () => {
 
     const res = await request(app)
       .patch("/Admin")
-      .set("Authorization", bearer(admin))
+      .set("Cookie", sessionCookie(admin))
       .send({ status: "approve", sentence: { _id: "65f000000000000000000000" } });
 
     expect(res.status).toBe(404);

@@ -4,11 +4,11 @@ import jwt from "jsonwebtoken";
 import app from "../app.js";
 import Profile from "../models/profile.js";
 import {
-  bearer,
   createSentence,
   createUser,
   sessionCookie,
   tokenFor,
+  tokenFromLogin,
 } from "./helpers.js";
 
 // We never call Google in tests. vi.mock swaps the real google-auth-library
@@ -67,9 +67,18 @@ describe("POST /auth (exchange a Google ID token for our JWT)", () => {
   it("returns a JWT holding the Google id that expires after 1 hour", async () => {
     const res = await request(app).post("/auth").send({ token: "t" });
 
-    const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(tokenFromLogin(res), process.env.JWT_SECRET);
     expect(decoded.id).toBe("google-new-user");
     expect(decoded.exp - decoded.iat).toBe(60 * 60);
+  });
+
+  it("keeps the token out of the response body, where page scripts could read it", async () => {
+    const res = await request(app).post("/auth").send({ token: "t" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeUndefined();
+    expect(JSON.stringify(res.body)).not.toContain(tokenFromLogin(res));
+    expect(res.body.user.id).toBe("google-new-user");
   });
 
   it("sets the token in an httpOnly, Secure, SameSite=Lax session cookie", async () => {
@@ -87,8 +96,7 @@ describe("POST /auth (exchange a Google ID token for our JWT)", () => {
     const res = await request(app).post("/auth").send({ token: "t" });
 
     const cookie = res.headers["set-cookie"].find((c) => c.startsWith("session="));
-    const token = cookie.split(";")[0].slice("session=".length);
-    const { iat, exp } = jwt.verify(token, process.env.JWT_SECRET);
+    const { iat, exp } = jwt.verify(tokenFromLogin(res), process.env.JWT_SECRET);
     expect(cookie).toContain(`Max-Age=${exp - iat}`);
   });
 
@@ -124,32 +132,28 @@ describe("POST /auth (exchange a Google ID token for our JWT)", () => {
 // The auth middleware guards every private route. GET /Login is the simplest
 // one, so we use it to exercise the middleware.
 describe("auth middleware (via GET /Login)", () => {
-  it("rejects a request with no Authorization header", async () => {
+  it("rejects a request with no session cookie", async () => {
     const res = await request(app).get("/Login");
     expect(res.status).toBe(401);
   });
 
-  it("rejects a token that isn't a JWT", async () => {
-    const res = await request(app)
-      .get("/Login")
-      .set("Authorization", "Bearer not-a-jwt");
+  it("rejects a session cookie that isn't a JWT", async () => {
+    const res = await request(app).get("/Login").set("Cookie", "session=not-a-jwt");
     expect(res.status).toBe(401);
   });
 
-  it("rejects a token signed with a different secret", async () => {
-    const forged = jwt.sign({ id: "google-user-1" }, "attacker-secret");
-    const res = await request(app)
-      .get("/Login")
-      .set("Authorization", `Bearer ${forged}`);
-    expect(res.status).toBe(401);
-  });
-
-  it("rejects an expired token", async () => {
+  it("rejects an expired session cookie", async () => {
     const user = await createUser();
     const expired = tokenFor(user, { expiresIn: -10 });
+    const res = await request(app).get("/Login").set("Cookie", `session=${expired}`);
+    expect(res.status).toBe(401);
+  });
+
+  it("no longer accepts a valid token in an Authorization header", async () => {
+    const user = await createUser();
     const res = await request(app)
       .get("/Login")
-      .set("Authorization", `Bearer ${expired}`);
+      .set("Authorization", `Bearer ${tokenFor(user)}`);
     expect(res.status).toBe(401);
   });
 
@@ -161,7 +165,7 @@ describe("auth middleware (via GET /Login)", () => {
       { $push: { ownSentences: sentence._id } }
     );
 
-    const res = await request(app).get("/Login").set("Authorization", bearer(user));
+    const res = await request(app).get("/Login").set("Cookie", sessionCookie(user));
 
     expect(res.status).toBe(200);
     expect(res.body.email).toBe("ada@example.com");
@@ -187,10 +191,10 @@ describe("auth middleware (via GET /Login)", () => {
 
   it("rejects a valid token whose user no longer exists (401)", async () => {
     const user = await createUser();
-    const auth = bearer(user);
+    const cookie = sessionCookie(user);
     await Profile.deleteOne({ _id: user._id });
 
-    const res = await request(app).get("/Login").set("Authorization", auth);
+    const res = await request(app).get("/Login").set("Cookie", cookie);
     expect(res.status).toBe(401);
   });
 });
@@ -217,16 +221,6 @@ describe("POST /Logout", () => {
 
     await request(app).post("/Logout").set("Cookie", copiedCookie);
     const res = await request(app).get("/Login").set("Cookie", copiedCookie);
-
-    expect(res.status).toBe(401);
-  });
-
-  it("cancels the token sent the old way (Authorization header) too", async () => {
-    const user = await createUser();
-    const auth = bearer(user);
-
-    await request(app).post("/Logout").set("Authorization", auth);
-    const res = await request(app).get("/Login").set("Authorization", auth);
 
     expect(res.status).toBe(401);
   });
@@ -272,7 +266,7 @@ describe("token version", () => {
 
     const res = await request(app).post("/auth").send({ token: "t" });
 
-    const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(tokenFromLogin(res), process.env.JWT_SECRET);
     expect(decoded.v).toBe(3);
   });
 

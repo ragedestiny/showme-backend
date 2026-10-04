@@ -25,10 +25,15 @@ export const createAdmin = (overrides = {}) =>
 export const tokenFor = (user, options = { expiresIn: "1h" }) =>
   jwt.sign({ id: user.id, v: user.tokenVersion ?? 0 }, process.env.JWT_SECRET, options);
 
-export const bearer = (user) => `Bearer ${tokenFor(user)}`;
-
 // The Cookie header a browser sends back after logging in.
 export const sessionCookie = (user) => `session=${tokenFor(user)}`;
+
+// The token inside the session cookie that a POST /auth response sets.
+export const tokenFromLogin = (res) =>
+  res.headers["set-cookie"]
+    .find((c) => c.startsWith("session="))
+    .split(";")[0]
+    .slice("session=".length);
 
 export const createSentence = (user, overrides = {}) =>
   Sentence.create({
