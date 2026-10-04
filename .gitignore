@@ -78,6 +78,8 @@ web_modules/
 .env.test.local
 .env.production.local
 .env.local
+# Staging secrets kept on this PC only (copied into GitHub secrets by hand)
+.env.staging
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
