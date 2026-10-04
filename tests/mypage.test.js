@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
+import express from "express";
 import app from "../app.js";
 import Profile from "../models/profile.js";
 import { Sentence } from "../models/sentences.js";
@@ -103,6 +104,24 @@ describe("request size limit", () => {
       .send({ title: "Day 1", tell: "x", show: "x".repeat(1024 * 1024 + 1) });
 
     expect(res.status).toBe(413);
+  });
+
+  it("refuses them even when Firebase has already read the body (as in production)", async () => {
+    // On Cloud Functions, Firebase parses the body before our app runs, so
+    // express.json() skips its own size check. Copy that with an outer app
+    // that reads the body first, with a far bigger limit, then hands over.
+    const pretendFirebase = express();
+    pretendFirebase.use(express.json({ limit: "50mb" }));
+    pretendFirebase.use(app);
+    const ada = await createUser();
+
+    const res = await request(pretendFirebase)
+      .post("/MyPage")
+      .set("Cookie", sessionCookie(ada))
+      .send({ title: "Day 1", tell: "x", show: "x".repeat(2 * 1024 * 1024) });
+
+    expect(res.status).toBe(413);
+    expect(await Sentence.countDocuments()).toBe(0);
   });
 });
 

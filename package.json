@@ -25,7 +25,7 @@
     "mongoose": "^8.24.4"
   },
   "engines": {
-    "node": "22"
+    "node": "24"
   },
   "devDependencies": {
     "mongodb-memory-server": "^10.4.3",
