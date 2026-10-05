@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import app from "../app.js";
 import Profile from "../models/profile.js";
-import { tokenFromLogin } from "./helpers.js";
+import { Sentence } from "../models/sentences.js";
+import { createSentence, createUser, tokenFromLogin } from "./helpers.js";
 
 // A secret long enough for the test login door to agree to open
 const SECRET = "a-long-random-test-login-secret-0123456789";
@@ -54,6 +55,64 @@ describe("POST /auth/test (test-only login, for automated browser tests on stagi
       await request(app).post("/auth/test").send({ secret: SECRET, role: "student" });
 
       expect(await Profile.countDocuments({ id: "test-student" })).toBe(1);
+    });
+
+    it("with fresh: true, deletes the test account's sentences so it starts over at Day 1", async () => {
+      const first = await request(app)
+        .post("/auth/test")
+        .send({ secret: SECRET, role: "student" });
+      const student = await Profile.findOne({ id: "test-student" });
+      const sentence = await createSentence(student);
+      student.ownSentences.push(sentence._id);
+      await student.save();
+
+      const res = await request(app)
+        .post("/auth/test")
+        .send({ secret: SECRET, role: "student", fresh: true });
+
+      expect(first.status).toBe(200);
+      expect(res.status).toBe(200);
+      expect(await Sentence.countDocuments({ GID: "test-student" })).toBe(0);
+      expect(res.body.user.ownSentences).toEqual([]);
+      // MyPage (which counts the sentences to pick the day) now sees none
+      const mypage = await request(app)
+        .get("/MyPage")
+        .set("Cookie", `session=${tokenFromLogin(res)}`);
+      expect(mypage.body).toEqual([]);
+    });
+
+    it("with fresh: true, never touches anyone else's sentences", async () => {
+      const ada = await createUser();
+      await createSentence(ada);
+
+      await request(app)
+        .post("/auth/test")
+        .send({ secret: SECRET, role: "student", fresh: true });
+
+      expect(await Sentence.countDocuments({ GID: ada.id })).toBe(1);
+    });
+
+    it("without fresh, keeps the test account's sentences", async () => {
+      await request(app).post("/auth/test").send({ secret: SECRET, role: "student" });
+      const student = await Profile.findOne({ id: "test-student" });
+      await createSentence(student);
+
+      await request(app).post("/auth/test").send({ secret: SECRET, role: "student" });
+
+      expect(await Sentence.countDocuments({ GID: "test-student" })).toBe(1);
+    });
+
+    it("refuses fresh: true with a wrong secret, deleting nothing", async () => {
+      await request(app).post("/auth/test").send({ secret: SECRET, role: "student" });
+      const student = await Profile.findOne({ id: "test-student" });
+      await createSentence(student);
+
+      const res = await request(app)
+        .post("/auth/test")
+        .send({ secret: "wrong", role: "student", fresh: true });
+
+      expect(res.status).toBe(401);
+      expect(await Sentence.countDocuments({ GID: "test-student" })).toBe(1);
     });
 
     it("refuses a wrong secret", async () => {
