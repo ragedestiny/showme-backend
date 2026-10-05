@@ -13,6 +13,13 @@ on:
           earlier commit SHA from the staging branch.
         required: false
         default: ""
+      skip-qawolf-check:
+        description: >-
+          Emergency only: promote even without a passing "QA Wolf verdict"
+          check (e.g. rolling back to a version from before QA Wolf ran).
+        type: boolean
+        required: false
+        default: false
 
 # Never two production deploys at once
 concurrency:
@@ -31,6 +38,7 @@ jobs:
     environment: production
     permissions:
       contents: write # to move the main branch
+      checks: read # to read the commit's "QA Wolf verdict" check
 
     steps:
       - name: Checkout Repository
@@ -55,6 +63,25 @@ jobs:
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "Promoting $sha: $(git log -1 --format=%s "$sha")"
+
+      # The quality gate: QA Wolf must have passed this exact commit on staging
+      # (the "QA Wolf verdict" check, from main.yml)
+      - name: Check QA Wolf passed this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ steps.pick.outputs.sha }}
+          SKIP: ${{ inputs.skip-qawolf-check }}
+        run: |
+          url="repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?check_name=QA%20Wolf%20verdict"
+          passed=$(gh api "$url" --jq '[.check_runs[] | select(.conclusion == "success")] | length')
+          if [ "$passed" -gt 0 ]; then
+            echo "QA Wolf passed $SHA on staging"
+          elif [ "$SKIP" = "true" ]; then
+            echo "::warning::Promoting $SHA WITHOUT a passing QA Wolf verdict (skip-qawolf-check was ticked)"
+          else
+            echo "::error::QA Wolf has not passed $SHA (no successful 'QA Wolf verdict' check). Refusing to promote."
+            exit 1
+          fi
 
       # From here on, the files are exactly those of the chosen commit
       - name: Switch to that commit
