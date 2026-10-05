@@ -51,8 +51,6 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       STAGING_API: https://us-central1-showme-staging.cloudfunctions.net/apiv2
-    outputs:
-      deployment-id: ${{ steps.report.outputs.deployment-id }}
 
     steps:
       - name: Checkout Repository
@@ -121,9 +119,10 @@ jobs:
 
       # The staging site (staging--show-me-not-tell.netlify.app) uses the staging
       # backend, so tell QA Wolf, whose staging trigger then runs the
-      # regression tests against it.
+      # regression tests against it. QA Wolf posts the result on the commit as
+      # its "QA Wolf Test Run" / "QA Wolf Test Results" checks; "Promote to
+      # production" checks QA Wolf's greenlight before deploying.
       - name: Tell QA Wolf the staging backend changed
-        id: report
         uses: qawolf/notify-qawolf-on-deploy-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -132,31 +131,3 @@ jobs:
           workspace-id: xoniuprcn2am5nh63rx8fn6cotea # not a secret
           environment: staging # the QA Wolf environment's alias
           deployment-url: https://staging--show-me-not-tell.netlify.app
-
-  # Waits for QA Wolf's verdict on the staging deploy. Its check, "QA Wolf
-  # verdict", passes only if QA Wolf passed; "Promote to production" requires it.
-  qawolf_verdict:
-    name: QA Wolf verdict
-    needs: deploy_staging
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v7
-
-      - name: Set Up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-
-      # QA Wolf's SDK is installed only for this step, outside the project
-      - name: Wait for QA Wolf's verdict
-        env:
-          QAWOLF_API_KEY: ${{ secrets.QAWOLF_API_KEY }}
-          DEPLOYMENT_ID: ${{ needs.deploy_staging.outputs.deployment-id }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/qawolf"
-          npm install --no-save --silent --prefix "$RUNNER_TEMP/qawolf" @qawolf/ci-sdk@3.3.0
-          cp .github/scripts/qawolf-verdict.mjs "$RUNNER_TEMP/qawolf/"
-          node "$RUNNER_TEMP/qawolf/qawolf-verdict.mjs"
