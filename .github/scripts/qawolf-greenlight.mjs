@@ -9,7 +9,11 @@
 //      failure QA Wolf has since triaged as non-blocking no longer blocks.
 // The answer must be about our own run: if a newer run replaced it (for
 // example a deploy from the other repository), that run may be testing
-// different code, so the commit is not greenlit and its tests must be re-run.
+// different code, so the commit is not greenlit.
+// Reporting the same commit again (e.g. re-running the staging workflow)
+// does not start new tests: QA Wolf marks the new report "did-not-run"
+// (duplicate-run) and points to the run that already covers it, which the
+// gate follows after checking that run is for this exact commit.
 // QA Wolf's SDK (@qawolf/ci-sdk 3.3.0) is not used: it sends read calls as
 // POST (the server answers 405) and mangles the replies. Needs Node 18+.
 
@@ -30,7 +34,7 @@ const fail = (message) => {
   process.exit(1);
 };
 const rerunAdvice =
-  "Re-run the staging tests for this commit (Actions > the staging workflow > Run workflow), then promote again.";
+  "Re-run that run in QA Wolf (open the run link and re-run it), or merge a new change to staging, then promote again.";
 
 for (const [name, value] of Object.entries({ QAWOLF_API_KEY, SHA, WORKSPACE_ID, STAGING_ENVIRONMENT_ID })) {
   if (!value) fail(`${name} must be set`);
@@ -104,11 +108,28 @@ for (;;) {
   if (state === "evaluated" && matched.length === 0) {
     fail(`QA Wolf did not test ${SHA}: no trigger matched its staging deployment.`);
   }
-  const notRun = matched.find((e) => e.verdict.run && e.verdict.run.status !== "ran" && e.verdict.run.status !== "starting");
-  if (notRun) fail(`QA Wolf did not run tests for ${SHA} (${notRun.verdict.run.status}). ${rerunAdvice}`);
-  runIds = matched.map((e) => e.verdict.run?.runId).filter(Boolean);
-  if (state === "evaluated" && runIds.length === matched.length) break;
+  runIds = [];
+  let starting = false;
+  for (const { verdict } of matched) {
+    const run = verdict.run ?? {};
+    if (run.status === "ran" && run.runId) runIds.push(run.runId);
+    else if (run.status === "did-not-run" && run.reason === "duplicate-run" && run.supersededByRunId) {
+      console.log(`This report was a duplicate; QA Wolf points to run ${run.supersededByRunId}`);
+      runIds.push(run.supersededByRunId);
+    } else if (run.status === "did-not-run") {
+      fail(`QA Wolf did not run tests for ${SHA} (${run.reason ?? "did-not-run"}: ${run.message ?? ""}).`);
+    } else starting = true; // "starting", or no outcome recorded yet
+  }
+  if (state === "evaluated" && !starting && runIds.length > 0) break;
   await wait("QA Wolf is still starting the test run");
+}
+
+// Every run we rely on must have tested this exact commit
+for (const runId of runIds) {
+  const run = await read("run.get", { runId });
+  if (run?.git?.commitSha !== SHA) {
+    fail(`QA Wolf run ${runId} tested ${run?.git?.commitSha ?? "an unknown commit"}, not ${SHA}.`);
+  }
 }
 
 // 3. Live greenlight for each run, which must be about that run itself
