@@ -1,4 +1,8 @@
 name: Promote to production
+# Shown in the list of runs. The commit at the top of a run's page is only the
+# version of this workflow file; the run's summary box names the commit that
+# is actually being promoted.
+run-name: Promote ${{ inputs.commit || 'what staging runs' }} to production
 
 # Deploys the version that is on staging (and that QA Wolf tested) to the
 # production backend, then moves `main` to it, so `main` always shows what
@@ -39,7 +43,7 @@ jobs:
   greenlight:
     name: QA Wolf greenlight
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35 # up to 10 min for staging to catch up + 20 for QA Wolf
     outputs:
       sha: ${{ steps.pick.outputs.sha }}
 
@@ -49,23 +53,15 @@ jobs:
         with:
           fetch-depth: 0 # full history, to check the commit came from staging
 
+      # What staging runs (after waiting up to 10 min for it to run the newest
+      # staging commit), or the commit typed in; see the script for details
       - name: Choose the commit to promote
         id: pick
         env:
           REQUESTED: ${{ inputs.commit }}
-        run: |
-          if [ -n "$REQUESTED" ]; then
-            sha=$(git rev-parse --verify "$REQUESTED^{commit}")
-          else
-            sha=$(curl -fsS "$STAGING_API/version" | jq -r .version)
-          fi
-          # Only code that has been merged to staging (and so was tested there)
-          if ! git merge-base --is-ancestor "$sha" origin/staging; then
-            echo "::error::$sha is not a commit on staging, refusing to promote it"
-            exit 1
-          fi
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "Promoting $sha: $(git log -1 --format=%s "$sha")"
+          VERSION_URL: ${{ env.STAGING_API }}/version
+          VERSION_FORMAT: json
+        run: bash .github/scripts/choose-commit.sh
 
       - name: Set Up Node.js
         if: ${{ !inputs.skip-qawolf-check }}
@@ -167,4 +163,6 @@ jobs:
 
       # main always matches what production runs (--force allows rollbacks)
       - name: Move main (production) to that commit
-        run: git push --force origin "$SHA:refs/heads/main"
+        run: |
+          git push --force origin "$SHA:refs/heads/main"
+          echo "- ✅ Production now runs \`${SHA:0:7}\`, and \`main\` points at it" >> "$GITHUB_STEP_SUMMARY"

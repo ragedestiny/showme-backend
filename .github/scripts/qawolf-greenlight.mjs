@@ -17,6 +17,8 @@
 // QA Wolf's SDK (@qawolf/ci-sdk 3.3.0) is not used: it sends read calls as
 // POST (the server answers 405) and mangles the replies. Needs Node 18+.
 
+import { appendFileSync } from "node:fs";
+
 const {
   QAWOLF_API_KEY,
   SHA,
@@ -29,8 +31,13 @@ const GREENLIGHT = "https://app.qawolf.com/api/v0/ci-greenlight/";
 const deadline = Date.now() + Number(WAIT_MINUTES) * 60 * 1000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// Also show the outcome in the run's summary box (GitHub Actions only)
+const summary = (line) => {
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${line}\n`);
+};
 const fail = (message) => {
   console.error(`::error::${message}`);
+  summary(`- ❌ QA Wolf: ${message}`);
   process.exit(1);
 };
 const rerunAdvice =
@@ -147,6 +154,7 @@ for (const runId of runIds) {
         fail(`QA Wolf found ${g.blockingBugsCount ?? "?"} blocking bug(s) in run ${runId}: ${g.relevantRunWithBugsUrl ?? g.rootRunUrl}`);
       }
       console.log(`QA Wolf run ${runId}: greenlit (0 blocking bugs)  ${g.rootRunUrl ?? ""}`);
+      summary(`- ✅ QA Wolf greenlight: [run ${runId}](${g.rootRunUrl}) completed with 0 blocking bugs`);
       break;
     }
     await wait(`QA Wolf run ${runId} is ${g.runStage}`);
