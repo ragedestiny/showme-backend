@@ -4,6 +4,11 @@ name: Promote to production
 # production backend, then moves `main` to it, so `main` always shows what
 # production runs. Run it from the Actions tab with "Run workflow".
 # Nobody pushes to `main` by hand; only this workflow.
+#
+# Two jobs:
+#   1. "QA Wolf greenlight" checks, live, that QA Wolf greenlit this exact
+#      commit on staging (completed, zero blocking bugs, not replaced)
+#   2. "promote" asks for the production approval only after that passes
 on:
   workflow_dispatch:
     inputs:
@@ -15,8 +20,8 @@ on:
         default: ""
       skip-qawolf-check:
         description: >-
-          Emergency only: promote even without a passing "QA Wolf verdict"
-          check (e.g. rolling back to a version from before QA Wolf ran).
+          Emergency only: promote without QA Wolf's greenlight (e.g. rolling
+          back to a version QA Wolf never tested).
         type: boolean
         required: false
         default: false
@@ -31,14 +36,12 @@ env:
   PRODUCTION_API: https://us-central1-showme-backend-789.cloudfunctions.net/apiv2
 
 jobs:
-  promote:
+  greenlight:
+    name: QA Wolf greenlight
     runs-on: ubuntu-24.04
-    # The "production" environment (repo Settings > Environments) asks a
-    # required reviewer to approve before this job starts
-    environment: production
-    permissions:
-      contents: write # to move the main branch
-      checks: read # to read the commit's "QA Wolf verdict" check
+    timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
 
     steps:
       - name: Checkout Repository
@@ -64,29 +67,47 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "Promoting $sha: $(git log -1 --format=%s "$sha")"
 
-      # The quality gate: QA Wolf must have passed this exact commit on staging
-      # (the "QA Wolf verdict" check, from main.yml)
-      - name: Check QA Wolf passed this commit
+      - name: Set Up Node.js
+        if: ${{ !inputs.skip-qawolf-check }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # Waits (up to 20 minutes) if QA Wolf is still testing the commit
+      - name: Check QA Wolf greenlit this commit
+        if: ${{ !inputs.skip-qawolf-check }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QAWOLF_API_KEY: ${{ secrets.QAWOLF_API_KEY }}
           SHA: ${{ steps.pick.outputs.sha }}
-          SKIP: ${{ inputs.skip-qawolf-check }}
-        run: |
-          url="repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?check_name=QA%20Wolf%20verdict"
-          passed=$(gh api "$url" --jq '[.check_runs[] | select(.conclusion == "success")] | length')
-          if [ "$passed" -gt 0 ]; then
-            echo "QA Wolf passed $SHA on staging"
-          elif [ "$SKIP" = "true" ]; then
-            echo "::warning::Promoting $SHA WITHOUT a passing QA Wolf verdict (skip-qawolf-check was ticked)"
-          else
-            echo "::error::QA Wolf has not passed $SHA (no successful 'QA Wolf verdict' check). Refusing to promote."
-            exit 1
-          fi
+          WORKSPACE_ID: xoniuprcn2am5nh63rx8fn6cotea # not a secret
+          STAGING_ENVIRONMENT_ID: mpfj5fxvb9okt8zi0s7upakaoenv # QA Wolf's Staging
+        run: node .github/scripts/qawolf-greenlight.mjs
+
+      - name: Warn that the QA Wolf check was skipped
+        if: ${{ inputs.skip-qawolf-check }}
+        env:
+          SHA: ${{ steps.pick.outputs.sha }}
+        run: echo "::warning::Promoting $SHA WITHOUT QA Wolf's greenlight (skip-qawolf-check was ticked)"
+
+  promote:
+    needs: greenlight
+    runs-on: ubuntu-24.04
+    # The "production" environment (repo Settings > Environments) asks a
+    # required reviewer to approve before this job starts
+    environment: production
+    permissions:
+      contents: write # to move the main branch
+    env:
+      SHA: ${{ needs.greenlight.outputs.sha }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the promoted commit must be available
 
       # From here on, the files are exactly those of the chosen commit
       - name: Switch to that commit
-        env:
-          SHA: ${{ steps.pick.outputs.sha }}
         run: git checkout --detach "$SHA"
 
       - name: Set Up Node.js
@@ -109,7 +130,6 @@ jobs:
           DATABASE_ACCESS: ${{ secrets.DATABASE_ACCESS }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          SHA: ${{ steps.pick.outputs.sha }}
         run: |
           for name in DATABASE_ACCESS GOOGLE_CLIENT_ID JWT_SECRET; do
             if [ -z "${!name}" ]; then
@@ -133,8 +153,6 @@ jobs:
         run: npx --yes firebase-tools@15 deploy --only functions --project default --non-interactive
 
       - name: Check production now runs that commit
-        env:
-          SHA: ${{ steps.pick.outputs.sha }}
         run: |
           for attempt in $(seq 1 12); do
             live=$(curl -fsS "$PRODUCTION_API/version" | jq -r .version || true)
@@ -149,6 +167,4 @@ jobs:
 
       # main always matches what production runs (--force allows rollbacks)
       - name: Move main (production) to that commit
-        env:
-          SHA: ${{ steps.pick.outputs.sha }}
         run: git push --force origin "$SHA:refs/heads/main"
