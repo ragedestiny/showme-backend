@@ -92,6 +92,23 @@ describe("POST /MyPage", () => {
     expect(res.status).toBe(201);
     expect(res.body.GID).toBe(ada.id);
   });
+
+  it.each([["   "], ["\n"], [" \n\t "], [""], [undefined], [42]])(
+    "refuses a blank or non-text show sentence (%j) and saves nothing",
+    async (show) => {
+      const ada = await createUser();
+
+      const res = await request(app)
+        .post("/MyPage")
+        .set("Cookie", sessionCookie(ada))
+        .send({ title: "Day 1", tell: "It is cold outside.", show });
+
+      expect(res.status).toBe(400);
+      expect(await Sentence.countDocuments({ GID: ada.id })).toBe(0);
+      const profile = await Profile.findById(ada._id);
+      expect(profile.ownSentences).toEqual([]);
+    }
+  );
 });
 
 describe("request size limit", () => {
@@ -165,6 +182,24 @@ describe("PATCH /MyPage", () => {
 
     expect(res.status).toBe(404);
   });
+
+  it.each([["   "], ["\n"], [""], [undefined]])(
+    "refuses to blank out a sentence (%j) and leaves it unchanged",
+    async (show) => {
+      const ada = await createUser();
+      await createSentence(ada, { title: "Day 1", show: "Keep me.", approved: true });
+
+      const res = await request(app)
+        .patch("/MyPage")
+        .set("Cookie", sessionCookie(ada))
+        .send({ title: "Day 1", show });
+
+      expect(res.status).toBe(400);
+      const saved = await Sentence.findOne({ GID: ada.id, title: "Day 1" });
+      expect(saved.show).toBe("Keep me.");
+      expect(saved.approved).toBe(true);
+    }
+  );
 });
 
 describe("default timestamps", () => {

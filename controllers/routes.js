@@ -21,12 +21,21 @@ export const getUserSentences = async (req, res) => {
   }
 };
 
+// A show sentence must be text with something besides spaces and line breaks,
+// so a blank one can't use up a day or wipe out a written one. The website
+// checks this too, but anyone can send requests straight to the server.
+const isBlank = (show) => typeof show !== "string" || show.trim() === "";
+const BLANK_MESSAGE = "The show sentence can't be empty";
+
 export const createNewUserSentence = async (req, res) => {
   try {
     // Only the sentence text comes from the browser. Who wrote it comes from
     // the verified token (req.userId), never from the request body, which
     // anyone can edit.
     const { show, title, tell } = req.body ?? {};
+    if (isBlank(show)) {
+      return res.status(400).json({ message: BLANK_MESSAGE });
+    }
 
     const user = await Profile.findOne({ id: req.userId });
     if (!user) {
@@ -53,6 +62,9 @@ export const createNewUserSentence = async (req, res) => {
 export const editUserSentence = async (req, res) => {
   try {
     const { title, show } = req.body ?? {};
+    if (isBlank(show)) {
+      return res.status(400).json({ message: BLANK_MESSAGE });
+    }
     // find sentence to replace
     const updateSentence = await Sentence.findOne({
       GID: req.userId,
