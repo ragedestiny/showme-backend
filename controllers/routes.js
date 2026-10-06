@@ -27,6 +27,13 @@ export const getUserSentences = async (req, res) => {
 const isBlank = (show) => typeof show !== "string" || show.trim() === "";
 const BLANK_MESSAGE = "The show sentence can't be empty";
 
+// Newest first, to the millisecond. Not sorted by the database: some early
+// sentences hold their date as text, and the database puts every text date
+// after every real one. new Date() reads both kinds, keeping milliseconds
+// (unlike Date.parse on a Date, which drops them).
+const newestFirst = (sentences) =>
+  sentences.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
 export const createNewUserSentence = async (req, res) => {
   try {
     // Only the sentence text comes from the browser. Who wrote it comes from
@@ -127,15 +134,13 @@ export const getUserInfo = async (req, res) => {
 // Route for fetching all sentences awaiting approval
 export const getPendingApprovalSentences = async (req, res) => {
   try {
-    // fetch all sentences that are not approved
-    // Newest (last edited) first. The database sorts, to the millisecond;
-    // Date.parse on a Date drops the milliseconds, so it can't break ties.
-    const awaitingApproval = await Sentence.find({
-      approved: false,
-      toRedo: false,
-    })
-      .sort({ createdAt: -1 })
-      .populate("author");
+    // fetch all sentences that are not approved, newest (last edited) first
+    const awaitingApproval = newestFirst(
+      await Sentence.find({
+        approved: false,
+        toRedo: false,
+      }).populate("author")
+    );
     res.status(200).json(awaitingApproval);
   } catch (error) {
     res.status(409).json({ message: error.message });
@@ -164,13 +169,13 @@ export const updatePendingApprovalSentences = async (req, res) => {
     }
     await checkedSentence.save();
 
-    // send back the updated queue, newest first (sorted by the database)
-    const awaitingApproval = await Sentence.find({
-      approved: false,
-      toRedo: false,
-    })
-      .sort({ createdAt: -1 })
-      .populate("author");
+    // send back the updated queue, newest first
+    const awaitingApproval = newestFirst(
+      await Sentence.find({
+        approved: false,
+        toRedo: false,
+      }).populate("author")
+    );
 
     res.status(201).json(awaitingApproval);
   } catch (error) {
@@ -181,12 +186,12 @@ export const updatePendingApprovalSentences = async (req, res) => {
 // fetch approved sentences from database
 export const fetchApprovedSentences = async (req, res) => {
   try {
-    // find all approved sentences, newest first (sorted by the database)
-    const approvedSentences = await Sentence.find({
-      approved: true,
-    })
-      .sort({ createdAt: -1 })
-      .populate("author");
+    // find all approved sentences, newest first
+    const approvedSentences = newestFirst(
+      await Sentence.find({
+        approved: true,
+      }).populate("author")
+    );
 
     res.status(200).json(approvedSentences);
   } catch (error) {
