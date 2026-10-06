@@ -143,16 +143,21 @@ describe("POST /auth/test (test-only login, for automated browser tests on stagi
       expect(res.status).toBe(400);
     });
 
-    it("gives each extra student role its own account, shown as Test Student", async () => {
+    it("gives each student role its own account, shown as Test Student", async () => {
       for (const [role, id] of [
+        ["student", "test-student"],
         ["student-approve", "test-student-approve"],
         ["student-redo", "test-student-redo"],
+        ["student-withdraw", "test-student-withdraw"],
+        ["student-pagination", "test-student-pagination"],
+        ["student-sort", "test-student-sort"],
       ]) {
         const res = await request(app).post("/auth/test").send({ secret: SECRET, role });
 
         expect(res.status).toBe(200);
         expect(res.body.user).toMatchObject({
           id,
+          email: `${id}@showme.test`,
           firstName: "Test",
           lastName: "Student",
           isAdmin: false,

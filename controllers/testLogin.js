@@ -22,29 +22,23 @@ import { startSession } from "./auth.js";
 const PRODUCTION_PROJECT = "showme-backend-789";
 const MIN_SECRET_LENGTH = 32;
 
+// Every test student has the same name, so pages show "Test S." whichever
+// one a test uses; only the id and email (built from the role) differ
+const testStudent = (role) => ({
+  id: `test-${role}`,
+  firstName: "Test",
+  lastName: "Student",
+  email: `test-${role}@showme.test`,
+  isAdmin: false,
+});
+
 const TEST_ACCOUNTS = {
-  student: {
-    id: "test-student",
-    firstName: "Test",
-    lastName: "Student",
-    email: "test-student@showme.test",
-    isAdmin: false,
-  },
-  // Same name as the student above, so pages show "Test S." either way
-  "student-approve": {
-    id: "test-student-approve",
-    firstName: "Test",
-    lastName: "Student",
-    email: "test-student-approve@showme.test",
-    isAdmin: false,
-  },
-  "student-redo": {
-    id: "test-student-redo",
-    firstName: "Test",
-    lastName: "Student",
-    email: "test-student-redo@showme.test",
-    isAdmin: false,
-  },
+  student: testStudent("student"),
+  "student-approve": testStudent("student-approve"),
+  "student-redo": testStudent("student-redo"),
+  "student-withdraw": testStudent("student-withdraw"),
+  "student-pagination": testStudent("student-pagination"),
+  "student-sort": testStudent("student-sort"),
   admin: {
     id: "test-admin",
     firstName: "Test",
