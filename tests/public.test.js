@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import request from "supertest";
 import app from "../app.js";
 import tellList from "../public/tellList.js";
+import { Sentence } from "../models/sentences.js";
 import { createSentence, createUser } from "./helpers.js";
 
 describe("GET / (tell sentences)", () => {
@@ -45,5 +46,39 @@ describe("GET /Collections (approved sentences)", () => {
     const res = await request(app).get("/Collections");
 
     expect(res.body.map((s) => s.show)).toEqual(["newer", "older"]);
+  });
+
+  it("sorts old sentences whose date was stored as text among the others", async () => {
+    const user = await createUser();
+    await createSentence(user, {
+      show: "oldest",
+      approved: true,
+      createdAt: new Date("2023-03-11T18:58:18.036Z"),
+    });
+    await createSentence(user, {
+      show: "newest",
+      approved: true,
+      createdAt: new Date("2024-01-01T00:00:00.000Z"),
+    });
+    // Some early sentences hold their date as text, not a Date. Written
+    // straight to the collection, past the app, as they were back then.
+    await Sentence.collection.insertOne({
+      title: "day1",
+      tell: "It is cold outside.",
+      show: "middle (date stored as text)",
+      approved: true,
+      toRedo: false,
+      author: user._id,
+      GID: user.id,
+      createdAt: "2023-03-23T00:28:12.589Z",
+    });
+
+    const res = await request(app).get("/Collections");
+
+    expect(res.body.map((s) => s.show)).toEqual([
+      "newest",
+      "middle (date stored as text)",
+      "oldest",
+    ]);
   });
 });
