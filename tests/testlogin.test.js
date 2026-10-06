@@ -135,6 +135,43 @@ describe("POST /auth/test (test-only login, for automated browser tests on stagi
         .send({ secret: SECRET, role: "superuser" });
       expect(res.status).toBe(400);
     });
+
+    it("refuses built-in object names as roles", async () => {
+      const res = await request(app)
+        .post("/auth/test")
+        .send({ secret: SECRET, role: "toString" });
+      expect(res.status).toBe(400);
+    });
+
+    it("gives each extra student role its own account, shown as Test Student", async () => {
+      for (const [role, id] of [
+        ["student-approve", "test-student-approve"],
+        ["student-redo", "test-student-redo"],
+      ]) {
+        const res = await request(app).post("/auth/test").send({ secret: SECRET, role });
+
+        expect(res.status).toBe(200);
+        expect(res.body.user).toMatchObject({
+          id,
+          firstName: "Test",
+          lastName: "Student",
+          isAdmin: false,
+        });
+      }
+    });
+
+    it("with fresh: true, only wipes the sentences of the student role that asked", async () => {
+      await request(app).post("/auth/test").send({ secret: SECRET, role: "student" });
+      const student = await Profile.findOne({ id: "test-student" });
+      await createSentence(student);
+
+      const res = await request(app)
+        .post("/auth/test")
+        .send({ secret: SECRET, role: "student-approve", fresh: true });
+
+      expect(res.status).toBe(200);
+      expect(await Sentence.countDocuments({ GID: "test-student" })).toBe(1);
+    });
   });
 
   describe("when the door must stay shut", () => {
