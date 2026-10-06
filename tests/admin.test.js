@@ -49,9 +49,35 @@ describe("GET /Admin", () => {
     expect(res.body.map((s) => s.show)).toEqual(["newer", "older"]);
     expect(res.body[0].author.firstName).toBe("Ada");
   });
+
+  it("keeps newest first even for sentences written within the same second", async () => {
+    const admin = await createAdmin();
+    const user = await createUser();
+    await createSentence(user, { show: "older", createdAt: new Date("2026-10-06T04:02:45.643Z") });
+    await createSentence(user, { show: "newer", createdAt: new Date("2026-10-06T04:02:45.993Z") });
+
+    const res = await request(app).get("/Admin").set("Cookie", sessionCookie(admin));
+
+    expect(res.body.map((s) => s.show)).toEqual(["newer", "older"]);
+  });
 });
 
 describe("PATCH /Admin", () => {
+  it("returns the remaining queue newest first, even within the same second", async () => {
+    const admin = await createAdmin();
+    const user = await createUser();
+    const target = await createSentence(user, { show: "approve me" });
+    await createSentence(user, { show: "older", createdAt: new Date("2026-10-06T04:02:45.643Z") });
+    await createSentence(user, { show: "newer", createdAt: new Date("2026-10-06T04:02:45.993Z") });
+
+    const res = await request(app)
+      .patch("/Admin")
+      .set("Cookie", sessionCookie(admin))
+      .send({ status: "approve", sentence: { _id: target._id } });
+
+    expect(res.body.map((s) => s.show)).toEqual(["newer", "older"]);
+  });
+
   it("approves a sentence and returns the remaining queue", async () => {
     const admin = await createAdmin();
     const user = await createUser();

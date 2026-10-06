@@ -27,4 +27,23 @@ describe("GET /Collections (approved sentences)", () => {
     expect(res.body.map((s) => s.show)).toEqual(["new", "old"]);
     expect(res.body[0].author.firstName).toBe("Ada");
   });
+
+  it("keeps newest first even for sentences written within the same second", async () => {
+    const user = await createUser();
+    // Saved first, 350 ms older: the database would hand it back first
+    await createSentence(user, {
+      show: "older",
+      approved: true,
+      createdAt: new Date("2026-10-06T04:02:45.643Z"),
+    });
+    await createSentence(user, {
+      show: "newer",
+      approved: true,
+      createdAt: new Date("2026-10-06T04:02:45.993Z"),
+    });
+
+    const res = await request(app).get("/Collections");
+
+    expect(res.body.map((s) => s.show)).toEqual(["newer", "older"]);
+  });
 });
