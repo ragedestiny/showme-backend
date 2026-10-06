@@ -5,10 +5,13 @@ import { startSession } from "./auth.js";
 
 // A login door for automated browser tests (QA Wolf) on the STAGING backend.
 // A robot can't click through "Sign in with Google", so instead it sends a
-// shared secret and gets logged in as one of two fixed test accounts.
+// shared secret and gets logged in as one of a few fixed test accounts.
 // With `fresh: true` it first deletes that test account's own sentences, so
 // a test starts from a clean slate (Day 1) every run; the app itself has no
 // way to delete a sentence.
+//
+// Each browser test that wipes sentences gets its own student account, so
+// tests running at the same time can't wipe each other's sentences.
 //
 // The door is shut (the route answers 404, as if it didn't exist) unless ALL
 // of these hold:
@@ -25,6 +28,21 @@ const TEST_ACCOUNTS = {
     firstName: "Test",
     lastName: "Student",
     email: "test-student@showme.test",
+    isAdmin: false,
+  },
+  // Same name as the student above, so pages show "Test S." either way
+  "student-approve": {
+    id: "test-student-approve",
+    firstName: "Test",
+    lastName: "Student",
+    email: "test-student-approve@showme.test",
+    isAdmin: false,
+  },
+  "student-redo": {
+    id: "test-student-redo",
+    firstName: "Test",
+    lastName: "Student",
+    email: "test-student-redo@showme.test",
     isAdmin: false,
   },
   admin: {
@@ -68,9 +86,12 @@ export const testLogin = async (req, res) => {
     return res.status(401).json({ message: "Invalid test login secret" });
   }
 
-  const account = TEST_ACCOUNTS[role];
+  // Object.hasOwn, so built-in names like "toString" don't count as roles
+  const account = Object.hasOwn(TEST_ACCOUNTS, role) ? TEST_ACCOUNTS[role] : undefined;
   if (!account) {
-    return res.status(400).json({ message: 'role must be "student" or "admin"' });
+    return res
+      .status(400)
+      .json({ message: `role must be one of: ${Object.keys(TEST_ACCOUNTS).join(", ")}` });
   }
 
   try {
