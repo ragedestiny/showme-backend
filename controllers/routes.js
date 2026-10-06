@@ -116,14 +116,14 @@ export const getUserInfo = async (req, res) => {
 export const getPendingApprovalSentences = async (req, res) => {
   try {
     // fetch all sentences that are not approved
+    // Newest (last edited) first. The database sorts, to the millisecond;
+    // Date.parse on a Date drops the milliseconds, so it can't break ties.
     const awaitingApproval = await Sentence.find({
       approved: false,
       toRedo: false,
-    }).populate("author");
-    // sort sentences by date last edited
-    awaitingApproval.sort(
-      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
-    );
+    })
+      .sort({ createdAt: -1 })
+      .populate("author");
     res.status(200).json(awaitingApproval);
   } catch (error) {
     res.status(409).json({ message: error.message });
@@ -152,16 +152,13 @@ export const updatePendingApprovalSentences = async (req, res) => {
     }
     await checkedSentence.save();
 
-    // send back sorted updated sentences
+    // send back the updated queue, newest first (sorted by the database)
     const awaitingApproval = await Sentence.find({
       approved: false,
       toRedo: false,
-    }).populate("author");
-
-    // Sort by creation date in descending order
-    awaitingApproval.sort(
-      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
-    );
+    })
+      .sort({ createdAt: -1 })
+      .populate("author");
 
     res.status(201).json(awaitingApproval);
   } catch (error) {
@@ -172,14 +169,12 @@ export const updatePendingApprovalSentences = async (req, res) => {
 // fetch approved sentences from database
 export const fetchApprovedSentences = async (req, res) => {
   try {
-    // find all approved sentences
+    // find all approved sentences, newest first (sorted by the database)
     const approvedSentences = await Sentence.find({
       approved: true,
-    }).populate("author");
-    // sort the approved sentences by date created
-    approvedSentences.sort(
-      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
-    );
+    })
+      .sort({ createdAt: -1 })
+      .populate("author");
 
     res.status(200).json(approvedSentences);
   } catch (error) {
