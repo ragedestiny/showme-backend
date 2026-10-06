@@ -39,6 +39,8 @@ const TEST_ACCOUNTS = {
   "student-withdraw": testStudent("student-withdraw"),
   "student-pagination": testStudent("student-pagination"),
   "student-sort": testStudent("student-sort"),
+  "student-double-submit": testStudent("student-double-submit"),
+  "student-mobile": testStudent("student-mobile"),
   admin: {
     id: "test-admin",
     firstName: "Test",

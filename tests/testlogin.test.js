@@ -151,6 +151,8 @@ describe("POST /auth/test (test-only login, for automated browser tests on stagi
         ["student-withdraw", "test-student-withdraw"],
         ["student-pagination", "test-student-pagination"],
         ["student-sort", "test-student-sort"],
+        ["student-double-submit", "test-student-double-submit"],
+        ["student-mobile", "test-student-mobile"],
       ]) {
         const res = await request(app).post("/auth/test").send({ secret: SECRET, role });
 
