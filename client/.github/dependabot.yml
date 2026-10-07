@@ -1,0 +1,44 @@
+# Dependabot opens pull requests when the libraries this project uses release
+# new versions. Every PR runs lint, tests and build (.github/workflows/ci.yml)
+# and gets a Netlify deploy preview; a person reviews and merges it.
+version: 2
+updates:
+  # npm libraries (package.json / package-lock.json)
+  - package-ecosystem: "npm"
+    directory: "/"
+    # Updates go through staging like every other change
+    target-branch: "staging"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Los_Angeles"
+    # Wait a week after a release before suggesting it, so a bad or hacked
+    # release is usually caught and withdrawn before it reaches us
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      # Minor and patch updates (meant to be safe) arrive together in one PR;
+      # each major update (may need code changes) gets its own PR
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # The GitHub Actions used by the CI workflow (checkout, setup-node)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    # Updates go through staging like every other change
+    target-branch: "staging"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Los_Angeles"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci"

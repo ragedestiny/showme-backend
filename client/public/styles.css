@@ -1,0 +1,432 @@
+body {
+  font-family: Roboto, Helvetica, Arial, sans-serif;
+  font-style: italic;
+  font-weight: 300 !important;
+  display: flex;
+  flex-direction: column;
+
+  min-height: 100%;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  background: url(https://img.freepik.com/free-vector/background-seamless-pattern-vector-with-cute-memphis_53876-105506.jpg?w=1380&t=st=1675105213~exp=1675105813~hmac=726bc720dc4fe74b49234cbbdd4fc13cc4c94f90896b67179c24de96ae7edabd);
+  background-repeat: repeat;
+  opacity: 0.95;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: contain;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+}
+
+/* Home page */
+.contenthome {
+  min-height: 79vh;
+}
+
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 30 30%27%3e%3cpath stroke=%27rgba%280, 0, 0, 0.55%29%27 stroke-linecap=%27round%27 stroke-miterlimit=%2710%27 stroke-width=%272%27 d=%27M4 7h22M4 15h22M4 23h22%27/%3e%3c/svg%3e") !important;
+}
+
+/* carousel styles */
+.carousel {
+  width: 80%;
+  justify-content: center;
+  margin: 5% auto 0;
+}
+
+.carousel-image {
+  width: 80%;
+  height: 70vh;
+  object-fit: cover;
+  opacity: 100%;
+}
+
+.carousel-caption {
+  color: rgb(38, 13, 75) !important;
+  font-style: oblique;
+  font-weight: 900;
+}
+
+.subtext {
+  font-weight: 400;
+}
+
+.contentlogin {
+  min-height: 88vh;
+}
+
+/* Login Modal styles */
+.modal-header {
+  color: rgb(4, 0, 255);
+}
+#signInDiv {
+  display: flex;
+  text-align: center;
+  justify-content: center;
+}
+.spinner {
+  display: flex;
+  text-align: center;
+  justify-content: center;
+}
+
+/* mypage styles */
+.contentmypage {
+  min-height: 87.5vh;
+}
+.content {
+  min-height: 84vh;
+}
+
+/* new sentence form styles */
+.formContainer {
+  padding-bottom: 1%;
+  border-style: ridge;
+  border-radius: 1rem;
+}
+
+.form-text {
+  font-size: large !important;
+}
+
+.form-label {
+  font-size: x-large;
+}
+
+.submitSentence {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* user sentences styles */
+.list-group {
+  min-height: 57vh;
+}
+
+.list-group-item {
+  background-color: rgb(243, 236, 242);
+}
+
+.tooltip {
+  font-size: 0.1rem !important;
+  font-weight: 200 !important;
+  line-height: 0.5 !important;
+  font-style: italic !important;
+}
+
+/* Sentence edit modal styles */
+.modal-body {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 95%;
+}
+
+/* pagination styles */
+.pages {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* footer styles */
+.site-footer {
+  display: block;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  text-align: center;
+  margin-top: auto;
+  background-color: #e3f2fd;
+  font-weight: 400;
+}
+
+.App {
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* About page styles */
+.about {
+  min-height: 87.5vh;
+}
+
+/* Mobile phone styles */
+@media (max-width: 480px) and (orientation: portrait) {
+  .contenthome {
+    min-height: 79vh;
+  }
+  .contentmypage {
+    min-height: 79vh;
+  }
+  .list-group-item {
+    font-size: medium !important;
+  }
+
+  .carousel {
+    width: auto;
+  }
+  .carousel-image {
+    height: 81vh;
+  }
+
+  .about {
+    font-size: medium !important;
+  }
+}
+
+/* Tablet styles */
+@media (max-width: 1024px) and (orientation: portrait) {
+  .contenthome {
+    min-height: 79vh;
+  }
+  .carousel {
+    width: auto;
+    height: 85vh;
+  }
+  .carousel-image {
+    height: 85vh;
+  }
+
+  .contentmypage {
+    min-height: 89vh;
+  }
+  .list-group {
+    min-height: 70vh;
+  }
+  .list-group-item {
+    min-height: 8.5vh;
+    font-size: x-large;
+  }
+  .form-text {
+    font-size: x-large !important;
+  }
+  .form-label {
+    font-size: xx-large;
+  }
+
+  .about {
+    min-height: 91.5vh;
+    font-size: xx-large;
+  }
+  .joinbutton {
+    min-width: 13rem;
+    min-height: 3rem;
+    font-size: x-large !important;
+  }
+}
+@media (max-width: 1366px) and (orientation: landscape) {
+  .contenthome {
+    min-height: 79vh;
+  }
+  .carousel {
+    width: auto;
+    height: 79.5vh;
+  }
+  .carousel-image {
+    height: 78vh;
+  }
+
+  .contentmypage {
+    min-height: 88.5vh;
+  }
+  .list-group {
+    min-height: 61vh;
+  }
+  .list-group-item {
+    min-height: 7.4vh;
+    font-size: large;
+  }
+  .form-text {
+    font-size: large !important;
+  }
+  .form-label {
+    font-size: x-large;
+  }
+
+  .about {
+    min-height: 88.5vh;
+    font-size: xx-large;
+  }
+  .joinbutton {
+    min-width: 13rem;
+    min-height: 3rem;
+    font-size: x-large !important;
+  }
+}
+
+.approvallist {
+  max-width: 100% !important;
+}
+
+/* Styles for collection page */
+.contentcollection {
+  min-height: 87vh;
+}
+
+/* A short message instead of a page's usual content, in a light box that's
+   readable on the patterned background: "couldn't load, try again" and
+   "nothing approved yet" on the collection page, "sign in" on MyPage */
+.page-message {
+  max-width: 34rem;
+  margin: 3rem auto;
+  padding: 1.5rem;
+  text-align: center;
+  background-color: rgba(255, 255, 255, 0.92);
+  border-radius: 0.5rem;
+}
+
+/* "Loading..." while a page's code downloads (PageLoading.jsx): placed and
+   sized like the collection page's own "Loading..." (whose sort menu's 1% top
+   margin pushes it down), so the handover between the two doesn't move it,
+   and the footer stays at the bottom */
+.page-loading {
+  min-height: 87vh;
+  margin-top: 1%;
+}
+
+/* "Loading..." while the app's code downloads (#app-loading in index.html,
+   removed by App.jsx): a copy of react-loading-overlay-ts's overlay, covering
+   the whole window. It fades in after 0.3 s, so a quick load never shows it */
+#app-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  text-align: center;
+  font-size: 1.2em;
+  color: #fff;
+  background-color: rgba(0, 0, 0, 0.7);
+  opacity: 0;
+  animation: app-loading-appear 0.2s ease-in 0.3s forwards;
+}
+
+.app-loading-content {
+  margin: auto;
+}
+
+.app-loading-spinner {
+  position: relative;
+  width: 50px;
+  margin: 0 auto 10px auto;
+}
+
+.app-loading-spinner::before {
+  content: "";
+  display: block;
+  padding-top: 100%;
+}
+
+.app-loading-spinner svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: auto;
+  animation: app-loading-rotate 2s linear infinite;
+}
+
+.app-loading-spinner circle {
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-dasharray: 1, 200;
+  stroke-dashoffset: 0;
+  animation: app-loading-dash 1.5s ease-in-out infinite;
+}
+
+@keyframes app-loading-appear {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes app-loading-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes app-loading-dash {
+  0% {
+    stroke-dasharray: 1, 200;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 89, 200;
+    stroke-dashoffset: -35px;
+  }
+  100% {
+    stroke-dasharray: 89, 200;
+    stroke-dashoffset: -124px;
+  }
+}
+
+.dropdown {
+  -webkit-justify-content: flex-end;
+  align-items: flex-end;
+  -webkit-align-items: flex-end;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1%;
+}
+
+#fade-button {
+  margin-right: 2vw;
+}
+
+/* The cards' gradient background is set in Cards.jsx (sx), because MUI 9's
+   own card styles load after this file and would override it here. */
+
+.MuiCard-root:hover {
+  box-shadow: 5px 10px 20px 1px rgba(0, 0, 0, 0.253);
+}
+
+.MuiCardMedia-root {
+  transform: scale(1);
+  transition: transform 0.5s ease;
+}
+
+.MuiCardMedia-root:hover {
+  transform: scale(1.1);
+}
+
+.MuiTypography-caption {
+  font-size: smaller !important;
+}
+
+.MuiTypography-body2 {
+  font-size: small !important;
+}
+
+/* MDB draws the carousel's arrows with Font Awesome characters but asks for
+   the "Font Awesome 6" font; this site uses Font Awesome 7. Starting with
+   .carousel makes this rule beat MDB's, which loads after this file. */
+.carousel .carousel-control-prev-icon::after,
+.carousel .carousel-control-next-icon::after {
+  font-family: "Font Awesome 7 Free", "Font Awesome 6 Free";
+}
+
+/* The edit pencil on MyPage (EditModal.jsx) is Font Awesome's "pen-to-square"
+   icon drawn directly. These are the sizing rules Font Awesome's code used to
+   add for it; fa-lg, fa-width-auto and fa-bounce come from Font Awesome's
+   stylesheet. */
+.svg-inline--fa {
+  box-sizing: content-box;
+  display: var(--fa-display, inline-block);
+  height: 1em;
+  overflow: visible;
+  vertical-align: -0.125em;
+  width: var(--fa-width, 1.25em);
+}
+
+.svg-inline--fa.fa-lg {
+  vertical-align: -0.2em;
+}

@@ -1,0 +1,4 @@
+# Shell scripts must keep Unix (LF) line endings: bash on GitHub's Linux
+# runners fails on Windows (CRLF) line endings. Git converts them on commit
+# and checkout, whatever the local core.autocrlf setting.
+*.sh text eol=lf
