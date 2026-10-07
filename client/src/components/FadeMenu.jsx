@@ -3,7 +3,9 @@ import Button from "@mui/material/Button";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Fade from "@mui/material/Fade";
-import { KeyboardArrowDown as KeyboardArrowDownIcon } from "@mui/icons-material";
+// Only this icon: "@mui/icons-material" on its own means thousands of icon
+// files, which the build drops but tests (and the dev server) load one by one
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 
 export default function FadeMenu(props) {
   // keep track of display state - initialize with Random
