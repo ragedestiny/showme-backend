@@ -1,17 +1,18 @@
 # Show ME
 
-> Show ME is used as a tool to help students write vivid and exciting sentences. Each day of the challenge, students will be given a different simple tell sentence. The goal is for the student to formulate and come up with a more descriptive sentence. Show ME will keep track of the submitted sentences, and students can edit them at any time. This is the backend server.
+> Show ME is used as a tool to help students write vivid and exciting sentences. Each day of the challenge, students will be given a different simple tell sentence. The goal is for the student to formulate and come up with a more descriptive sentence. Show ME will keep track of the submitted sentences, and students can edit them at any time.
 
 > Live website [_here_](https://show-me-not-tell.netlify.app/).
->
-> Frontend Client [_here_](https://github.com/ragedestiny/showme-client).
 
 ## Table of Contents
 
 - [General Info](#general-information)
 - [Technologies Used](#technologies-used)
 - [Features](#features)
+- [Screenshots](#screenshots)
+- [Project Structure](#project-structure)
 - [Setup](#setup)
+- [How Changes Go Live](#how-changes-go-live)
 - [Project Status](#project-status)
 - [Room for Improvement](#room-for-improvement)
 
@@ -21,9 +22,11 @@
 
 ## Technologies Used
 
-- express - version 4.18.2
-- mongoose - version 6.9.1
-- nodejs - version 14.15.0
+- Client (`client/`): React, Redux with redux-persist, React Router, Bootstrap, MDB and MUI, built with Vite and hosted on Netlify
+- Backend (`backend/`): Node.js, Express and Mongoose (MongoDB Atlas), running on Firebase Cloud Functions
+- Tests: Vitest in both halves, plus QA Wolf's end-to-end tests on staging
+
+Exact versions are listed in each folder's `package.json`.
 
 ## Features
 
@@ -32,13 +35,48 @@
 - Admin can approve or reject show sentences
 - Display students' sentences in Collections Page after approval
 
+## Screenshots
+
+![Home Page](./img/homepage.PNG)
+
+![My Page](./img/MyPage.PNG)
+
+![Admin Page](./img/AdminPage.PNG)
+
+![Collections](./img/Collections.PNG)
+
+## Project Structure
+
+- `client/`: the website (React), built and hosted by Netlify
+- `backend/`: the API the website calls (Express on Firebase Cloud Functions)
+- `.github/`: the GitHub Actions workflows that test every change, deploy staging and promote to production
+- `img/`: the screenshots above
+
+Each half has its own `package.json`, so run npm commands inside `client/` or `backend/`.
+
 ## Setup
 
-`cd to correct folder`
+Backend (runs in the Firebase emulator):
+
+`cd backend`
 
 `npm install`
 
 `npm start`
+
+Client (http://localhost:3000, which forwards `/api` calls to the emulator):
+
+`cd client`
+
+`npm install`
+
+`npm start`
+
+## How Changes Go Live
+
+1. A pull request into `staging` runs the backend tests and the client's lint, tests and build, and gets a Netlify deploy preview that uses the staging backend.
+2. Merging it deploys both halves to staging. Once the staging site and backend both run the merged commit, QA Wolf tests it.
+3. "Promote to production" (in the Actions tab) checks that QA Wolf greenlit that commit, then deploys the backend and the site from it.
 
 ## Project Status
 
