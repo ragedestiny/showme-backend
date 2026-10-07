@@ -34,10 +34,15 @@ const prefetchPages = () => {
     (load) => load().catch(() => {}) // a failure here is retried on the click
   );
 };
-const whenIdle = (callback) =>
-  window.requestIdleCallback
-    ? window.requestIdleCallback(callback, { timeout: 3000 })
-    : setTimeout(callback, 1000); // Safari has no requestIdleCallback
+// Returns a function that cancels the wait, for when the navbar goes away first
+const whenIdle = (callback) => {
+  if (window.requestIdleCallback) {
+    const id = window.requestIdleCallback(callback, { timeout: 3000 });
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = setTimeout(callback, 1000); // Safari has no requestIdleCallback
+  return () => clearTimeout(id);
+};
 
 // Going to /login directly (an old bookmark, or typing the address): open the
 // sign-in pop-up over the home page, just like the Login link does. Login is
@@ -62,9 +67,9 @@ function NavbarComp() {
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    whenIdle(prefetchPages);
-  }, []);
+  // In the app the navbar never goes away, but in tests each one is removed
+  // after its test; a download still waiting then would land in a later test
+  useEffect(() => whenIdle(prefetchPages), []);
 
   // Function to handle showing the login modal (the same function between
   // draws, so OpenLogin's effect runs once)
