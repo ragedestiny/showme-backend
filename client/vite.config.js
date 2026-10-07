@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { purgeCSSPlugin } from "@fullhuman/postcss-purgecss";
+// Version 8 exports the plugin as the package itself, not by name
+import purgeCSSPlugin from "@fullhuman/postcss-purgecss";
 import tell from "./src/tellData.js";
 import { phoneCarouselMedia } from "./src/config.js";
 
