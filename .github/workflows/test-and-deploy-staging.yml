@@ -1,0 +1,226 @@
+name: Test, and deploy staging
+
+# One workflow for both halves of the site, backend/ and client/.
+#
+# On every pull request, and every push to staging or main:
+#   - "Backend tests" and "Client checks" (lint, tests, build) run side by
+#     side, whichever half the change touched: each takes about a minute.
+#
+# Pull requests merge into the `staging` branch. After a merge, if every
+# check passed:
+#   1. "Deploy backend to staging" deploys backend/ to the STAGING backend
+#      (practice database, test login on). Netlify builds the staging site
+#      (staging--show-me-not-tell.netlify.app) from the same commit by itself.
+#   2. "Test staging with QA Wolf" waits until the staging site AND the
+#      staging backend both run the merged commit, then tells QA Wolf, once,
+#      so its regression tests always test a site and backend that belong
+#      together. QA Wolf posts the result on the commit as its own
+#      "QA Wolf Test Run" and "QA Wolf Test Results" checks.
+#
+# PRODUCTION only changes when someone runs "Promote to production"
+# (promote-production.yml), which first checks QA Wolf's greenlight for the
+# commit, then deploys both halves from it.
+on:
+  push:
+    branches:
+      - staging
+      - main
+  pull_request:
+  # Adds a "Run workflow" button (Actions tab): on staging, it redeploys
+  # staging and re-runs the QA Wolf tests (e.g. when a newer run replaced this
+  # commit's run before it finished). On another branch, it only deploys that
+  # branch's backend to staging, to try it out; promotion refuses anything
+  # that is not on staging.
+  workflow_dispatch:
+
+env:
+  STAGING_API: https://us-central1-showme-staging.cloudfunctions.net/apiv2
+  STAGING_URL: https://staging--show-me-not-tell.netlify.app
+
+jobs:
+  backend:
+    name: Backend tests
+    # Pinned rather than ubuntu-latest, so GitHub switching "latest" to a new
+    # Ubuntu can't change our setup without us noticing.
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Set Up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24' # keep in sync with "engines" in backend/package.json
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # npm ci installs exactly what package-lock.json lists
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Tests
+        run: npm test
+
+  client:
+    name: Client checks
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Set Up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24' # keep in sync with NODE_VERSION in client/netlify.toml
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      # npm ci installs exactly what package-lock.json lists
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run Tests
+        run: npm run test:once
+
+      # Netlify builds the real site by itself; this checks the build works
+      - name: Build
+        run: npm run build
+
+  deploy_staging:
+    name: Deploy backend to staging
+    needs: [backend, client] # only runs if every check passed
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/staging') ||
+      github.event_name == 'workflow_dispatch'
+    # One staging backend: deploy one change after the other, never at once
+    concurrency:
+      group: staging-deploy
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Set Up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # Firebase uploads the .env file as the function's runtime settings.
+      # Staging has its own secrets: a database login that can only reach the
+      # practice database (ShowME-dev), its own JWT secret (so a staging login
+      # is worthless on production), and the test login secret, which
+      # production never gets. APP_VERSION records which commit this is.
+      - name: Write runtime settings (.env) from GitHub secrets
+        env:
+          DATABASE_ACCESS: ${{ secrets.STAGING_DATABASE_ACCESS }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          JWT_SECRET: ${{ secrets.STAGING_JWT_SECRET }}
+          TEST_LOGIN_SECRET: ${{ secrets.TEST_LOGIN_SECRET }}
+        run: |
+          for name in DATABASE_ACCESS GOOGLE_CLIENT_ID JWT_SECRET TEST_LOGIN_SECRET; do
+            if [ -z "${!name}" ]; then
+              echo "::error::GitHub secret for $name is empty or missing"
+              exit 1
+            fi
+          done
+          {
+            echo "DATABASE_ACCESS=\"$DATABASE_ACCESS\""
+            echo "DATABASE_NAME=\"ShowME-dev\""
+            echo "GOOGLE_CLIENT_ID=\"$GOOGLE_CLIENT_ID\""
+            echo "JWT_SECRET=\"$JWT_SECRET\""
+            echo "TEST_LOGIN_SECRET=\"$TEST_LOGIN_SECRET\""
+            echo "APP_VERSION=\"$GITHUB_SHA\""
+          } > .env
+
+      # Writes a credentials file (gha-creds-*.json) to the repository's root,
+      # outside backend/, so the deploy below never uploads it
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.STAGING_FIREBASE_SERVICE_ACCOUNT }}
+
+      # "staging" is the project alias defined in backend/.firebaserc.
+      # --force lets the deploy set up the cleanup policy for old function
+      # images by itself (production's was set by hand), and lets it remove a
+      # staging function that no longer exists in the code without asking.
+      - name: Deploy Functions to Staging
+        run: npx --yes firebase-tools@15 deploy --only functions --project staging --non-interactive --force
+
+      - name: Check staging now runs this commit
+        run: |
+          for attempt in $(seq 1 12); do
+            live=$(curl -fsS "$STAGING_API/version" | jq -r .version || true)
+            if [ "$live" = "$GITHUB_SHA" ]; then
+              echo "Staging backend runs $GITHUB_SHA"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Staging did not report $GITHUB_SHA after deploying"
+          exit 1
+
+  qawolf:
+    name: Test staging with QA Wolf
+    needs: deploy_staging
+    # The staging site is Netlify's build of the staging branch, so only a
+    # staging commit can be running on both halves
+    if: github.ref == 'refs/heads/staging'
+    # A newer merge makes testing this one pointless: its run cancels this
+    # job (while it waits), never a deploy
+    concurrency:
+      group: qawolf-staging
+      cancel-in-progress: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      # The site writes the commit it was built from into /version.txt (see
+      # client/vite.config.js) and the backend reports its own at /version.
+      # Testing before both run this commit would test a mix of old and new,
+      # so wait (up to 10 minutes) until both do.
+      - name: Wait until the staging site and backend both run this commit
+        run: |
+          short() { if [ -n "$1" ]; then echo "${1:0:7}"; else echo "nothing yet"; fi; }
+          for attempt in $(seq 1 60); do
+            site=$(curl -fsS "$STAGING_URL/version.txt?check=$attempt" || true)
+            api=$(curl -fsS "$STAGING_API/version" | jq -r .version || true)
+            if [ "$site" = "$GITHUB_SHA" ] && [ "$api" = "$GITHUB_SHA" ]; then
+              echo "The staging site and backend both run $GITHUB_SHA"
+              exit 0
+            fi
+            echo "Staging site runs $(short "$site"), backend $(short "$api"); waiting for both to run ${GITHUB_SHA:0:7}..."
+            sleep 10
+          done
+          echo "::error::The staging site ($(short "$site")) and backend ($(short "$api")) did not both run $GITHUB_SHA within 10 minutes"
+          exit 1
+
+      - name: Tell QA Wolf staging was deployed
+        uses: qawolf/notify-qawolf-on-deploy-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          qawolf-api-key: ${{ secrets.QAWOLF_API_KEY }}
+          workspace-id: xoniuprcn2am5nh63rx8fn6cotea # not a secret
+          environment: staging # the QA Wolf environment's alias
+          deployment-url: ${{ env.STAGING_URL }}
