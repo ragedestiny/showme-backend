@@ -46,7 +46,7 @@ const removeUnusedStyles = () =>
 
 // Writes build/version.txt containing the git commit the site was built from.
 // Netlify provides it as COMMIT_REF. CI reads this file to know when a deploy
-// of a specific commit is live (see qawolf-staging.yml, promote-production.yml).
+// of a specific commit is live (see the workflows in .github/workflows/).
 const versionFile = () => ({
   name: "version-file",
   generateBundle() {

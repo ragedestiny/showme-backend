@@ -1,10 +1,20 @@
 # How Netlify builds this site. Settings here take priority over the ones in
 # Netlify's dashboard, so the build instructions live with the code.
 # (Redirect rules stay in public/_redirects.)
+#
+# The site lives in client/: in Netlify's settings, the base directory is
+# "client". Netlify reads this file from there, runs the commands there, and
+# every path here is relative to client/.
 
 [build]
   command = "npm run build"
   publish = "build"
+  # Build every commit, including ones that only change backend/. Otherwise
+  # Netlify skips commits that change nothing in the base directory, but each
+  # build writes its commit into /version.txt, and the staging and
+  # production workflows wait for the site to report the commit they deploy.
+  # (For this command, exit code 1 means "build"; 0 would mean "skip".)
+  ignore = "exit 1"
 
 [build.environment]
   # Vite needs a recent Node; match the backend and local development.
