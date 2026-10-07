@@ -1,0 +1,54 @@
+# How Netlify builds this site. Settings here take priority over the ones in
+# Netlify's dashboard, so the build instructions live with the code.
+# (Redirect rules stay in public/_redirects.)
+#
+# The site lives in client/: in Netlify's settings, the base directory is
+# "client". Netlify reads this file from there, runs the commands there, and
+# every path here is relative to client/.
+
+[build]
+  command = "npm run build"
+  publish = "build"
+  # Build every commit, including ones that only change backend/. Otherwise
+  # Netlify skips commits that change nothing in the base directory, but each
+  # build writes its commit into /version.txt, and the staging and
+  # production workflows wait for the site to report the commit they deploy.
+  # (For this command, exit code 1 means "build"; 0 would mean "skip".)
+  ignore = "exit 1"
+
+[build.environment]
+  # Vite needs a recent Node; match the backend and local development.
+  NODE_VERSION = "24"
+
+# Deploy previews (one per pull request) and branch deploys use the STAGING
+# backend and its practice database; only production uses the real one.
+[context.deploy-preview]
+  command = "npm run build && node scripts/use-staging-api.js"
+
+[context.branch-deploy]
+  command = "npm run build && node scripts/use-staging-api.js"
+
+# How long browsers may keep files before asking Netlify again. Netlify's
+# default makes them re-check every file on every visit (max-age=0), which
+# adds a round trip per file to each page refresh.
+#
+# Built code and styles have a fingerprint of their content in their name
+# (e.g. index-DM9tHt97.js), so a file with a given name never changes and
+# browsers can keep it for a year without checking. index.html, version.txt
+# and the API keep the default, so a new deploy is picked up straight away.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Photos keep their names when edited, so browsers keep them for a day, then
+# keep showing the copy they have while checking for a new one in the background.
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
+[[headers]]
+  for = "/sentenceimages/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"

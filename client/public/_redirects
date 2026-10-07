@@ -1,0 +1,9 @@
+# Rules are checked top to bottom; the first match wins.
+
+# Forward API calls to the backend. "200" means Netlify fetches the backend
+# itself and returns the answer, so to the browser the backend is part of this
+# site and the login cookie counts as first-party.
+/api/*  https://us-central1-showme-backend-789.cloudfunctions.net/apiv2/:splat  200
+
+# Every other address loads the React app, which picks the page to show.
+/*  /index.html  200

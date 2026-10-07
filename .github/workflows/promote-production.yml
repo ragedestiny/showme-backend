@@ -4,15 +4,23 @@ name: Promote to production
 # is actually being promoted.
 run-name: Promote ${{ inputs.commit || 'what staging runs' }} to production
 
-# Deploys the version that is on staging (and that QA Wolf tested) to the
-# production backend, then moves `main` to it, so `main` always shows what
-# production runs. Run it from the Actions tab with "Run workflow".
-# Nobody pushes to `main` by hand; only this workflow.
+# Copies the version that is on staging (and that QA Wolf tested) to
+# production: both halves, from the same commit. Run it from the Actions tab
+# with "Run workflow".
+#
+# `main` is production: it always points at the commit production runs. The
+# live site is Netlify's build of `main`, so moving `main` to the tested
+# commit makes Netlify rebuild the live site from it. Nobody pushes to `main`
+# by hand; only this workflow.
 #
 # Two jobs:
 #   1. "QA Wolf greenlight" checks, live, that QA Wolf greenlit this exact
 #      commit on staging (completed, zero blocking bugs, not replaced)
-#   2. "promote" asks for the production approval only after that passes
+#   2. "Promote" asks for the production approval only after that passes.
+#      It deploys the backend first, then moves `main` and waits for the live
+#      site, so the new site never calls a backend that lacks what it needs.
+#      (So for those few minutes, a backend change must keep working with the
+#      site that is live.)
 on:
   workflow_dispatch:
     inputs:
@@ -30,14 +38,16 @@ on:
         required: false
         default: false
 
-# Never two production deploys at once
+# Never two promotions at once
 concurrency:
   group: promote-production
   cancel-in-progress: false
 
 env:
   STAGING_API: https://us-central1-showme-staging.cloudfunctions.net/apiv2
+  STAGING_URL: https://staging--show-me-not-tell.netlify.app
   PRODUCTION_API: https://us-central1-showme-backend-789.cloudfunctions.net/apiv2
+  PRODUCTION_URL: https://show-me-not-tell.netlify.app
 
 jobs:
   greenlight:
@@ -53,14 +63,15 @@ jobs:
         with:
           fetch-depth: 0 # full history, to check the commit came from staging
 
-      # What staging runs (after waiting up to 10 min for it to run the newest
-      # staging commit), or the commit typed in; see the script for details
+      # What staging runs (after waiting up to 10 min for the staging site and
+      # backend to both run the newest staging commit), or the commit typed
+      # in; see the script for details
       - name: Choose the commit to promote
         id: pick
         env:
           REQUESTED: ${{ inputs.commit }}
-          VERSION_URL: ${{ env.STAGING_API }}/version
-          VERSION_FORMAT: json
+          SITE_VERSION_URL: ${{ env.STAGING_URL }}/version.txt
+          API_VERSION_URL: ${{ env.STAGING_API }}/version
         run: bash .github/scripts/choose-commit.sh
 
       - name: Set Up Node.js
@@ -86,6 +97,7 @@ jobs:
         run: echo "::warning::Promoting $SHA WITHOUT QA Wolf's greenlight (skip-qawolf-check was ticked)"
 
   promote:
+    name: Promote
     needs: greenlight
     runs-on: ubuntu-24.04
     # The "production" environment (repo Settings > Environments) asks a
@@ -95,6 +107,9 @@ jobs:
       contents: write # to move the main branch
     env:
       SHA: ${{ needs.greenlight.outputs.sha }}
+    defaults:
+      run:
+        working-directory: backend
 
     steps:
       - name: Checkout Repository
@@ -111,6 +126,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+          cache-dependency-path: backend/package-lock.json
 
       - name: Install Dependencies
         run: npm ci
@@ -140,6 +156,8 @@ jobs:
             echo "APP_VERSION=\"$SHA\""
           } > .env
 
+      # Writes a credentials file (gha-creds-*.json) to the repository's root,
+      # outside backend/, so the deploy below never uploads it
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
@@ -148,21 +166,38 @@ jobs:
       - name: Deploy Functions to Production
         run: npx --yes firebase-tools@15 deploy --only functions --project default --non-interactive
 
-      - name: Check production now runs that commit
+      - name: Check the production backend now runs that commit
         run: |
           for attempt in $(seq 1 12); do
             live=$(curl -fsS "$PRODUCTION_API/version" | jq -r .version || true)
             if [ "$live" = "$SHA" ]; then
-              echo "Production runs $SHA"
+              echo "The production backend runs $SHA"
+              echo "- ✅ The production backend now runs \`${SHA:0:7}\`" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             sleep 10
           done
-          echo "::error::Production did not report $SHA after deploying"
+          echo "::error::The production backend did not report $SHA after deploying"
           exit 1
 
-      # main always matches what production runs (--force allows rollbacks)
+      # main always matches what production runs (--force allows rollbacks).
+      # Netlify sees main move and rebuilds the live site from this commit.
       - name: Move main (production) to that commit
         run: |
           git push --force origin "$SHA:refs/heads/main"
-          echo "- ✅ Production now runs \`${SHA:0:7}\`, and \`main\` points at it" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ \`main\` points at \`${SHA:0:7}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Wait for Netlify to publish it on the live site
+        run: |
+          for attempt in $(seq 1 60); do
+            live=$(curl -fsS "$PRODUCTION_URL/version.txt?check=$attempt" || true)
+            if [ "$live" = "$SHA" ]; then
+              echo "The live site now serves $SHA"
+              echo "- ✅ The live site now serves \`${SHA:0:7}\`" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Live site is not on $SHA yet, waiting..."
+            sleep 10
+          done
+          echo "::error::The live site did not publish $SHA within 10 minutes. The production backend already runs it; check the production deploy in Netlify."
+          exit 1

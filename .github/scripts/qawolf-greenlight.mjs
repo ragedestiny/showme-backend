@@ -8,7 +8,7 @@
 //      completed with zero blocking bugs. Asking at promotion time means a
 //      failure QA Wolf has since triaged as non-blocking no longer blocks.
 // The answer must be about our own run: if a newer run replaced it (for
-// example a deploy from the other repository), that run may be testing
+// example after a newer merge to staging), that run may be testing
 // different code, so the commit is not greenlit.
 // Reporting the same commit again (e.g. re-running the staging workflow)
 // does not start new tests: QA Wolf marks the new report "did-not-run"
