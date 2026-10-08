@@ -2,6 +2,7 @@
 // them into process.env before this file runs, both when deployed and in the
 // emulator, so no library is needed here.
 import { onRequest } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions/logger";
 import mongoose from "mongoose";
 import app from "./app.js";
 import { connectWithRetry } from "./config/db.js";
@@ -20,7 +21,7 @@ if (process.env.DATABASE_ACCESS) {
     })
   );
 } else {
-  console.error("DATABASE_ACCESS is not set; the database is unavailable.");
+  logger.error("DATABASE_ACCESS is not set; the database is unavailable.");
 }
 
 // 2nd generation: one instance serves many requests at once.

@@ -17,6 +17,8 @@ export const getUserSentences = async (req, res) => {
 
     res.status(200).json(userSentences);
   } catch (error) {
+    // Saved for this request's log line (see middlewares/requestLog.js)
+    res.locals.error = error;
     res.status(404).json({ message: error.message });
   }
 };
@@ -62,6 +64,7 @@ export const createNewUserSentence = async (req, res) => {
     await user.save();
     res.status(201).json(newSentence);
   } catch (error) {
+    res.locals.error = error;
     res.status(409).json({ message: error.message });
   }
 };
@@ -92,6 +95,7 @@ export const editUserSentence = async (req, res) => {
 
     res.status(201).json(updateSentence);
   } catch (error) {
+    res.locals.error = error;
     res.status(409).json({ message: error.message });
   }
 };
@@ -110,6 +114,7 @@ export const logoutUser = async (req, res) => {
     res.clearCookie(SESSION_COOKIE, sessionCookieOptions);
     res.status(200).json({ message: "Logged out" });
   } catch (error) {
+    res.locals.error = error;
     res.status(500).json({ message: error.message });
   }
 };
@@ -127,6 +132,7 @@ export const getUserInfo = async (req, res) => {
     }
     res.status(200).json(user);
   } catch (error) {
+    res.locals.error = error;
     res.status(500).json({ message: error.message });
   }
 };
@@ -143,6 +149,7 @@ export const getPendingApprovalSentences = async (req, res) => {
     );
     res.status(200).json(awaitingApproval);
   } catch (error) {
+    res.locals.error = error;
     res.status(409).json({ message: error.message });
   }
 };
@@ -179,6 +186,7 @@ export const updatePendingApprovalSentences = async (req, res) => {
 
     res.status(201).json(awaitingApproval);
   } catch (error) {
+    res.locals.error = error;
     res.status(409).json({ message: error.message });
   }
 };
@@ -195,6 +203,7 @@ export const fetchApprovedSentences = async (req, res) => {
 
     res.status(200).json(approvedSentences);
   } catch (error) {
+    res.locals.error = error;
     res.status(409).json({ message: error.message });
   }
 };

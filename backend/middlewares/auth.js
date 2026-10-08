@@ -30,6 +30,8 @@ const auth = async (req, res, next) => {
     req.userId = session.id; // the Google id from our custom JWT
     next();
   } catch (error) {
+    // Saved for this request's log line (see middlewares/requestLog.js)
+    res.locals.error = error;
     res.status(500).json({ message: error.message });
   }
 };
