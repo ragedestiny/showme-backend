@@ -48,6 +48,9 @@ export const googleAuth = async (req, res) => {
       audience: process.env.GOOGLE_CLIENT_ID,
     });
   } catch (error) {
+    // Not saved for the log line (unlike other errors): Google's message can
+    // hold the whole token, and a bad token is the visitor's problem, not a
+    // fault on our side. The 401 itself still shows up in the log.
     return res.status(401).json({ message: "Invalid Google token" });
   }
 
@@ -74,6 +77,8 @@ export const googleAuth = async (req, res) => {
 
     startSession(res, user);
   } catch (error) {
+    // Saved for this request's log line (see middlewares/requestLog.js)
+    res.locals.error = error;
     res
       .status(500)
       .json({ message: "Google authentication failed", error: error.message });

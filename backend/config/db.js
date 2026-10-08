@@ -1,3 +1,5 @@
+import { logger } from "firebase-functions/logger";
+
 // Connect to MongoDB, and keep trying until it works.
 //
 // A server instance connects once, when it starts. If that single attempt
@@ -5,9 +7,12 @@
 // does not try again by itself: every request on that instance would wait
 // 10 seconds and fail until Google replaced the instance. Retrying here means
 // a failed start heals itself within seconds.
+//
+// Each failed attempt is a WARNING, not an ERROR: the next try usually works.
+// If it never does, every request fails and those are logged as errors.
 export const connectWithRetry = async (
   connect,
-  { retryDelayMs = 5000, log = console.error } = {}
+  { retryDelayMs = 5000, log = logger.warn } = {}
 ) => {
   for (let attempt = 1; ; attempt++) {
     try {

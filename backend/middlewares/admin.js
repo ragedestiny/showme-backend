@@ -10,6 +10,8 @@ const admin = async (req, res, next) => {
 
     next();
   } catch (error) {
+    // Saved for this request's log line (see middlewares/requestLog.js)
+    res.locals.error = error;
     res.status(500).json({ message: error.message });
   }
 };

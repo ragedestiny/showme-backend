@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
+import { logger } from "firebase-functions/logger";
 import app from "../app.js";
 import Profile from "../models/profile.js";
 import {
   createSentence,
   createUser,
+  logLineFor,
   sessionCookie,
   tokenFor,
   tokenFromLogin,
@@ -124,6 +126,20 @@ describe("POST /auth (exchange a Google ID token for our JWT)", () => {
     expect(res.status).toBe(401);
     expect(res.body.message).toBe("Invalid Google token");
     expect(await Profile.countDocuments()).toBe(0);
+  });
+
+  it("logs a rejected Google token as a normal 401, without Google's message", async () => {
+    // Google's error messages can contain the whole token
+    verifyIdToken.mockRejectedValue(
+      new Error("Wrong number of segments in token: forged-token-text")
+    );
+    logger.write.mockClear();
+
+    await request(app).post("/auth").send({ token: "forged-token-text" });
+
+    const line = await logLineFor("/auth");
+    expect(line).toMatchObject({ severity: "INFO", status: 401 });
+    expect(JSON.stringify(line)).not.toContain("forged-token-text");
   });
 
   it("still returns 500 when something on our side breaks", async () => {

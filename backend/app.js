@@ -2,10 +2,15 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import routerUrls from "./routes/routes.js";
+import requestLog from "./middlewares/requestLog.js";
 
 // Build the Express app without starting it or connecting to a database,
 // so tests can import it and supply their own throwaway database.
 const app = express();
+
+// First, so every request gets a log line, including ones answered early
+// (static files, the size check below).
+app.use(requestLog);
 
 app.use(express.static("public"));
 

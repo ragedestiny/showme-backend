@@ -1,6 +1,21 @@
+import { expect, vi } from "vitest";
 import jwt from "jsonwebtoken";
+import { logger } from "firebase-functions/logger";
 import Profile from "../models/profile.js";
 import { Sentence } from "../models/sentences.js";
+
+// The log line written for the one request to `path` (see
+// middlewares/requestLog.js). tests/setup.js replaces logger.write with a
+// fake, so this reads what would have been written. The line is written when
+// the response finishes, which can be a moment after supertest has the answer.
+export const logLineFor = (path) =>
+  vi.waitFor(() => {
+    const lines = logger.write.mock.calls
+      .map(([entry]) => entry)
+      .filter((entry) => entry.path === path);
+    expect(lines).toHaveLength(1);
+    return lines[0];
+  });
 
 // Create a user in the test database. `id` is the Google account id ("sub").
 export const createUser = (overrides = {}) =>
