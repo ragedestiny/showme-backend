@@ -1,0 +1,1346 @@
+{
+  "title": "Show ME backend",
+  "uid": "showme-backend",
+  "description": "Requests, failures, speed and servers of the Show ME backend (Cloud Run service apiv2), plus its log lines. Kept in the showme repo: grafana/README.md.",
+  "tags": [
+    "show-me"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "refresh": "",
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Live site",
+      "type": "link",
+      "icon": "external link",
+      "url": "https://show-me-not-tell.netlify.app",
+      "targetBlank": true,
+      "tooltip": ""
+    },
+    {
+      "title": "Logs Explorer",
+      "type": "link",
+      "icon": "doc",
+      "url": "https://console.cloud.google.com/logs/query?project=${project}",
+      "targetBlank": true,
+      "tooltip": "This environment's logs in Google Cloud"
+    },
+    {
+      "title": "Error Reporting",
+      "type": "link",
+      "icon": "bolt",
+      "url": "https://console.cloud.google.com/errors?project=${project}",
+      "targetBlank": true,
+      "tooltip": "This environment's errors, grouped"
+    },
+    {
+      "title": "GitHub",
+      "type": "link",
+      "icon": "external link",
+      "url": "https://github.com/ragedestiny/showme",
+      "targetBlank": true,
+      "tooltip": ""
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "ds_monitoring",
+        "label": "Metrics source",
+        "type": "datasource",
+        "query": "stackdriver",
+        "hide": 2,
+        "refresh": 1,
+        "regex": "",
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "ds_logging",
+        "label": "Logs source",
+        "type": "datasource",
+        "query": "googlecloud-logging-datasource",
+        "hide": 2,
+        "refresh": 1,
+        "regex": "",
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "project",
+        "label": "Environment",
+        "type": "custom",
+        "hide": 0,
+        "multi": false,
+        "includeAll": false,
+        "query": "Production : showme-backend-789,Staging : showme-staging",
+        "current": {
+          "text": "Production",
+          "value": "showme-backend-789",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "Production",
+            "value": "showme-backend-789",
+            "selected": true
+          },
+          {
+            "text": "Staging",
+            "value": "showme-staging",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Requests",
+      "description": "Every request the backend answered in the chosen time range. The line behind the number shows when they came in.",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${ds_monitoring}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "timeSeriesList",
+          "timeSeriesList": {
+            "projectName": "$project",
+            "filters": [
+              "metric.type",
+              "=",
+              "run.googleapis.com/request_count",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "apiv2"
+            ],
+            "perSeriesAligner": "ALIGN_DELTA",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "groupBys": [],
+            "view": "FULL",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Failing",
+      "description": "Share of requests that got a 5xx answer (the server broke) in the chosen time range. 4xx answers, such as a logged-out visitor's 401, don't count. Green under 1%, orange under 5%, red above.",
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${ds_monitoring}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "$project",
+            "expr": "100 * (\n  sum(increase(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\", service_name=\"apiv2\", response_code_class=\"5xx\"}[$__range]))\n  or vector(0)\n)\n/ sum(increase(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\", service_name=\"apiv2\"}[$__range]))",
+            "step": "$__interval"
+          }
+        }
+      ],
+      "maxDataPoints": 300,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "unit": "percent",
+          "noValue": "0%",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "orange"
+              },
+              {
+                "value": 5,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Server errors",
+      "description": "Requests the server failed with a 5xx answer in the chosen time range. Their reasons are in the Warnings and errors panel below, and grouped in Error Reporting (panel link).",
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${ds_monitoring}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "timeSeriesList",
+          "timeSeriesList": {
+            "projectName": "$project",
+            "filters": [
+              "metric.type",
+              "=",
+              "run.googleapis.com/request_count",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "apiv2",
+              "AND",
+              "metric.label.response_code_class",
+              "=",
+              "5xx"
+            ],
+            "perSeriesAligner": "ALIGN_DELTA",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "groupBys": [],
+            "view": "FULL",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "links": [
+        {
+          "title": "Open Error Reporting",
+          "url": "https://console.cloud.google.com/errors?project=${project}",
+          "targetBlank": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Typical response",
+      "description": "Average of the typical (p50) response time: half of requests were faster than this. Green under 300 ms, orange under 1 s, red above.",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${ds_monitoring}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "timeSeriesList",
+          "timeSeriesList": {
+            "projectName": "$project",
+            "filters": [
+              "metric.type",
+              "=",
+              "run.googleapis.com/request_latencies",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "apiv2"
+            ],
+            "perSeriesAligner": "ALIGN_DELTA",
+            "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "groupBys": [],
+            "view": "FULL",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "ms",
+          "noValue": "-",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 300,
+                "color": "orange"
+              },
+              {
+                "value": 1000,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Servers now",
+      "description": "Copies of the backend Google runs right now (busy or idle). 0 is normal after a quiet spell: Google stops them, and the next request starts one (a slower first request).",
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${ds_monitoring}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "timeSeriesList",
+          "timeSeriesList": {
+            "projectName": "$project",
+            "filters": [
+              "metric.type",
+              "=",
+              "run.googleapis.com/container/instance_count",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "apiv2"
+            ],
+            "perSeriesAligner": "ALIGN_MAX",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "groupBys": [],
+            "view": "FULL",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "gauge",
+      "title": "Peak memory",
+      "description": "The most memory any server used in the chosen time range, as a share of its 512 MiB. Orange from 60%, red from 80%.",
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 5
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${ds_monitoring}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "timeSeriesList",
+          "timeSeriesList": {
+            "projectName": "$project",
+            "filters": [
+              "metric.type",
+              "=",
+              "run.googleapis.com/container/memory/utilizations",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "apiv2"
+            ],
+            "perSeriesAligner": "ALIGN_DELTA",
+            "crossSeriesReducer": "REDUCE_PERCENTILE_99",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "groupBys": [],
+            "view": "FULL",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "sizing": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 0,
+          "min": 0,
+          "max": 1,
+          "noValue": "-",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 0.6,
+                "color": "orange"
+              },
+              {
+                "value": 0.8,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Traffic and speed",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Requests per minute, by result",
+      "description": "2xx = answered fine, 4xx = refused (e.g. not logged in), 5xx = the server broke. On staging, the tall spikes are QA Wolf's test runs.",
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 10,
+        "h": 9
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${ds_monitoring}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "timeSeriesList",
+          "aliasBy": "{{metric.label.response_code_class}}",
+          "timeSeriesList": {
+            "projectName": "$project",
+            "filters": [
+              "metric.type",
+              "=",
+              "run.googleapis.com/request_count",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "apiv2"
+            ],
+            "perSeriesAligner": "ALIGN_DELTA",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "alignmentPeriod": "+60s",
+            "groupBys": [
+              "metric.label.response_code_class"
+            ],
+            "view": "FULL",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "gradientMode": "opacity",
+            "lineInterpolation": "linear",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "2xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "3xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "4xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "type": "piechart",
+      "title": "Requests by result",
+      "description": "Share of all requests in the chosen time range by how they were answered.",
+      "gridPos": {
+        "x": 10,
+        "y": 6,
+        "w": 5,
+        "h": 9
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${ds_monitoring}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "timeSeriesList",
+          "aliasBy": "{{metric.label.response_code_class}}",
+          "timeSeriesList": {
+            "projectName": "$project",
+            "filters": [
+              "metric.type",
+              "=",
+              "run.googleapis.com/request_count",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "apiv2"
+            ],
+            "perSeriesAligner": "ALIGN_DELTA",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "groupBys": [
+              "metric.label.response_code_class"
+            ],
+            "view": "FULL",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "displayLabels": [
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "values": [
+            "value"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "2xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "3xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "4xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Response time",
+      "description": "How long Google measured each answer took, per time slot with traffic (no bar = nobody used the site). Typical (blue) = half of requests were faster; slowest 5% (purple, behind) = only 1 in 20 was slower. The dashed line is 1 second. Spikes after a quiet spell are usually a server starting up.",
+      "gridPos": {
+        "x": 15,
+        "y": 6,
+        "w": 9,
+        "h": 9
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${ds_monitoring}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "timeSeriesList",
+          "aliasBy": "slowest 5% (p95)",
+          "timeSeriesList": {
+            "projectName": "$project",
+            "filters": [
+              "metric.type",
+              "=",
+              "run.googleapis.com/request_latencies",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "apiv2"
+            ],
+            "perSeriesAligner": "ALIGN_DELTA",
+            "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "groupBys": [],
+            "view": "FULL",
+            "preprocessor": "none"
+          }
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "timeSeriesList",
+          "aliasBy": "typical (p50)",
+          "timeSeriesList": {
+            "projectName": "$project",
+            "filters": [
+              "metric.type",
+              "=",
+              "run.googleapis.com/request_latencies",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "apiv2"
+            ],
+            "perSeriesAligner": "ALIGN_DELTA",
+            "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "groupBys": [],
+            "view": "FULL",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "transparent"
+              },
+              {
+                "value": 1000,
+                "color": "red"
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "gradientMode": "opacity",
+            "lineInterpolation": "linear",
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "typical (p50)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "slowest 5% (p95)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Servers",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Servers running",
+      "description": "Copies of the backend over time. Active = handling requests; idle = kept warm for the next one. index.js caps this at 10.",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${ds_monitoring}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "timeSeriesList",
+          "aliasBy": "{{metric.label.state}}",
+          "timeSeriesList": {
+            "projectName": "$project",
+            "filters": [
+              "metric.type",
+              "=",
+              "run.googleapis.com/container/instance_count",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "apiv2"
+            ],
+            "perSeriesAligner": "ALIGN_MAX",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "groupBys": [
+              "metric.label.state"
+            ],
+            "view": "FULL",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "gradientMode": "opacity",
+            "lineInterpolation": "linear",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "idle"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Memory used",
+      "description": "Memory used by the busiest server, as a share of its 512 MiB, per time slot with a server running. Bars turn orange from 60% and red from 80%.",
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${ds_monitoring}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${ds_monitoring}"
+          },
+          "queryType": "timeSeriesList",
+          "aliasBy": "busiest server",
+          "timeSeriesList": {
+            "projectName": "$project",
+            "filters": [
+              "metric.type",
+              "=",
+              "run.googleapis.com/container/memory/utilizations",
+              "AND",
+              "resource.label.service_name",
+              "=",
+              "apiv2"
+            ],
+            "perSeriesAligner": "ALIGN_DELTA",
+            "crossSeriesReducer": "REDUCE_PERCENTILE_99",
+            "alignmentPeriod": "cloud-monitoring-auto",
+            "groupBys": [],
+            "view": "FULL",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 0.6,
+                "color": "orange"
+              },
+              {
+                "value": 0.8,
+                "color": "red"
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "gradientMode": "scheme",
+            "lineInterpolation": "linear",
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Log lines",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 15,
+      "type": "logs",
+      "title": "Warnings and errors",
+      "description": "Lines your backend logged as WARNING or ERROR: failed requests with their reason, failed database connections. Google's own 4xx/5xx request records are left out; their reasons show up here.",
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 24,
+        "h": 9
+      },
+      "datasource": {
+        "type": "googlecloud-logging-datasource",
+        "uid": "${ds_logging}"
+      },
+      "links": [
+        {
+          "title": "Open in Logs Explorer",
+          "url": "https://console.cloud.google.com/logs/query?project=${project}",
+          "targetBlank": true
+        }
+      ],
+      "maxDataPoints": 100,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "googlecloud-logging-datasource",
+            "uid": "${ds_logging}"
+          },
+          "projectId": "$project",
+          "queryText": "resource.type=\"cloud_run_revision\"\nresource.labels.service_name=\"apiv2\"\nseverity>=WARNING\nNOT logName:\"run.googleapis.com%2Frequests\""
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none"
+      }
+    },
+    {
+      "id": 16,
+      "type": "logs",
+      "title": "Recent requests",
+      "description": "The newest request lines from requestLog.js. Open one for its fields (path, status, durationMs, userId).",
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 11
+      },
+      "datasource": {
+        "type": "googlecloud-logging-datasource",
+        "uid": "${ds_logging}"
+      },
+      "links": [
+        {
+          "title": "Open in Logs Explorer",
+          "url": "https://console.cloud.google.com/logs/query?project=${project}",
+          "targetBlank": true
+        }
+      ],
+      "maxDataPoints": 100,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "googlecloud-logging-datasource",
+            "uid": "${ds_logging}"
+          },
+          "projectId": "$project",
+          "queryText": "resource.type=\"cloud_run_revision\"\nresource.labels.service_name=\"apiv2\"\njsonPayload.path:*"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none"
+      }
+    }
+  ]
+}
