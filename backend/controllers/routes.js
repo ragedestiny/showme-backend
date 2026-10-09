@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Sentence } from "../models/sentences.js";
 import Profile from "../models/profile.js";
 import tellList from "../public/tellList.js";
@@ -72,6 +73,12 @@ export const createNewUserSentence = async (req, res) => {
 export const editUserSentence = async (req, res) => {
   try {
     const { title, show } = req.body ?? {};
+    // The title goes into the database query, so it must be plain text: an
+    // object like {"$gt": ""} would be read by MongoDB as "any title" and pick
+    // out a sentence the request never named.
+    if (typeof title !== "string") {
+      return res.status(400).json({ message: "The title must be text" });
+    }
     if (isBlank(show)) {
       return res.status(400).json({ message: BLANK_MESSAGE });
     }
@@ -159,8 +166,14 @@ export const updatePendingApprovalSentences = async (req, res) => {
   try {
     // The admin middleware on this route has already checked isAdmin.
     const { status, sentence } = req.body ?? {};
+    // The id goes into the database query, so it must be a real id written as
+    // text: an object like {"$ne": null} would be read as "any sentence".
+    const id = sentence?._id;
+    if (typeof id !== "string" || !mongoose.isObjectIdOrHexString(id)) {
+      return res.status(400).json({ message: "Invalid sentence id" });
+    }
 
-    const checkedSentence = await Sentence.findById(sentence?._id);
+    const checkedSentence = await Sentence.findById(id);
 
     if (!checkedSentence) {
       return res.status(404).json({ message: "Sentence not found" });

@@ -111,6 +111,25 @@ describe("PATCH /Admin", () => {
     expect(saved.approved).toBe(false);
   });
 
+  // An id that's a database instruction, like {"$ne": null} ("any
+  // sentence"), must not approve a sentence nobody picked.
+  it.each([[{ $ne: null }], [{ $gt: "" }], ["not-an-id"], [12345]])(
+    "refuses a sentence id that isn't one (%j) and approves nothing",
+    async (id) => {
+      const admin = await createAdmin();
+      const author = await createUser();
+      await createSentence(author, { title: "Day 1" });
+
+      const res = await request(app)
+        .patch("/Admin")
+        .set("Cookie", sessionCookie(admin))
+        .send({ status: "approve", sentence: { _id: id } });
+
+      expect(res.status).toBe(400);
+      expect(await Sentence.countDocuments({ approved: true })).toBe(0);
+    }
+  );
+
   it("returns 404 for a sentence that doesn't exist", async () => {
     const admin = await createAdmin();
 
