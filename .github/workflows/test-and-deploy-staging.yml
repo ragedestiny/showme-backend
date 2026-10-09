@@ -33,6 +33,11 @@ on:
   # that is not on staging.
   workflow_dispatch:
 
+# What GitHub's token may do in these jobs: read the code, nothing more. (The
+# deploy logs in to Google with its own key, not with this token.)
+permissions:
+  contents: read
+
 env:
   STAGING_API: https://us-central1-showme-staging.cloudfunctions.net/apiv2
   STAGING_URL: https://staging--show-me-not-tell.netlify.app
@@ -193,6 +198,11 @@ jobs:
       cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
+      # The QA Wolf action uses the token to look up the pull request a commit
+      # came from
+      pull-requests: read
 
     steps:
       # The site writes the commit it was built from into /version.txt (see

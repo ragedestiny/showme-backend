@@ -200,6 +200,25 @@ describe("PATCH /MyPage", () => {
       expect(saved.approved).toBe(true);
     }
   );
+
+  // A title that's a database instruction instead of text, like {"$gt": ""}
+  // ("any title"), must not pick out a sentence the student didn't name.
+  it.each([[{ $gt: "" }], [{ $ne: null }], [["Day 1"]], [undefined]])(
+    "refuses a title that isn't text (%j) and changes nothing",
+    async (title) => {
+      const ada = await createUser();
+      await createSentence(ada, { title: "Day 1", show: "Keep me." });
+
+      const res = await request(app)
+        .patch("/MyPage")
+        .set("Cookie", sessionCookie(ada))
+        .send({ title, show: "Overwritten" });
+
+      expect(res.status).toBe(400);
+      const saved = await Sentence.findOne({ GID: ada.id, title: "Day 1" });
+      expect(saved.show).toBe("Keep me.");
+    }
+  );
 });
 
 describe("default timestamps", () => {

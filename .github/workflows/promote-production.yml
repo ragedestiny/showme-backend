@@ -43,6 +43,12 @@ concurrency:
   group: promote-production
   cancel-in-progress: false
 
+# What GitHub's token may do: read the code. Only the Promote job may also
+# write, to move main (see its permissions). The deploy logs in to Google with
+# its own key, not with this token.
+permissions:
+  contents: read
+
 env:
   STAGING_API: https://us-central1-showme-staging.cloudfunctions.net/apiv2
   STAGING_URL: https://staging--show-me-not-tell.netlify.app
