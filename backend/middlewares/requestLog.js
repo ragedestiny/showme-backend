@@ -2,7 +2,8 @@ import { logger } from "firebase-functions/logger";
 
 // Writes one log line for every request, once the answer has been sent:
 //
-//   GET /MyPage 200 in 35 ms   (plus method, path, status, durationMs, userId)
+//   GET /MyPage 200 in 35 ms   (plus method, path, status, durationMs, userId,
+//                               version)
 //
 // The line is JSON, so Cloud Logging keeps each field separately and you can
 // search by them (jsonPayload.status>=500, jsonPayload.path="/Admin") instead
@@ -39,6 +40,10 @@ const requestLog = (req, res, next) => {
       durationMs,
       // Set by the auth middleware: the Google account id, not a name or email
       userId: req.userId,
+      // Which deploy wrote the line: the git commit the deploy workflows put
+      // in APP_VERSION (the same value /version answers). When something
+      // starts failing, this shows which change it started with.
+      version: process.env.APP_VERSION || "local",
       // Error Reporting reads stack_trace, groups the same failure together
       // and counts how often it happens
       ...(error && { error: error.message, stack_trace: error.stack }),

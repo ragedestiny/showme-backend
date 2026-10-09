@@ -21,7 +21,23 @@ describe("request log (one structured line per request)", () => {
       status: 200,
       durationMs: expect.any(Number),
       userId: undefined,
+      version: expect.any(String),
     });
+  });
+
+  it("records which deploy wrote the line", async () => {
+    onTestFinished(() => vi.unstubAllEnvs());
+
+    // The deploy workflows write the git commit into APP_VERSION
+    vi.stubEnv("APP_VERSION", "0123abcd");
+    await request(app).get("/version");
+    expect(await logLineFor("/version")).toMatchObject({ version: "0123abcd" });
+
+    // Tests and the emulator have none
+    logger.write.mockClear();
+    vi.stubEnv("APP_VERSION", "");
+    await request(app).get("/version");
+    expect(await logLineFor("/version")).toMatchObject({ version: "local" });
   });
 
   it("records who made the request when they're logged in", async () => {
