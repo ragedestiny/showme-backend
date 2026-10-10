@@ -4,13 +4,16 @@
 # (.github/workflows/test-and-deploy-staging.yml) and gets a Netlify deploy
 # preview; a person reviews and merges it (merging to staging deploys
 # staging).
+#
+# PRs go to the default branch, staging, like every other change. That's why
+# no target-branch is set: with one, Dependabot's security-fix PRs would ignore
+# this file (the "deps" prefix, the directories), and only version updates
+# would follow it.
 version: 2
 updates:
   # The backend's npm libraries (backend/package.json / package-lock.json)
   - package-ecosystem: "npm"
     directory: "/backend"
-    # Updates go through staging like every other change
-    target-branch: "staging"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -35,7 +38,6 @@ updates:
   # with the same rules
   - package-ecosystem: "npm"
     directory: "/client"
-    target-branch: "staging"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -55,8 +57,6 @@ updates:
   # The GitHub Actions the workflows use (checkout, setup-node, auth, QA Wolf)
   - package-ecosystem: "github-actions"
     directory: "/"
-    # Updates go through staging like every other change
-    target-branch: "staging"
     schedule:
       interval: "weekly"
       day: "monday"
